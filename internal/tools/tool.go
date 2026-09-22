@@ -1,5 +1,11 @@
 package tools
 
+import (
+	"context"
+
+	"github.com/mtariq99/dispatchai/models"
+)
+
 // This file defines the generic representation of a tool capability.
 //
 // IMPORTANT:
@@ -21,3 +27,9 @@ package tools
 //
 // DispatchAI only needs enough information to let the LLM understand
 // what capability is available.
+
+type Tool interface {
+	Name() string
+	Definition() models.Definition
+	Execute(ctx context.Context, call models.Call) models.Result
+}
