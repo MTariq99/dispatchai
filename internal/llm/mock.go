@@ -1,14 +1,32 @@
 package llm
 
-// This file provides a fake LLM implementation for tests.
-//
-// Tests should not need to make real LLM API calls.
-//
-// The mock can return predetermined responses such as:
-//
-//   1. Tool call
-//   2. Another tool call
-//   3. Final response
-//
-// This allows deterministic testing of the Assistant orchestration,
-// tool loop, error handling, and policy behavior.
+import (
+	"context"
+
+	"github.com/mtariq99/dispatchai/models"
+)
+
+type MockClient struct {
+	Responses []models.Response
+
+	index int
+}
+
+// NewMockClient creates a mock LLM client.
+func NewMockClient(responses ...models.Response) *MockClient {
+	return &MockClient{
+		Responses: responses,
+	}
+}
+
+// Generate returns the next predefined response.
+func (m *MockClient) Generate(_ context.Context, _ models.Request) (models.Response, error) {
+	if m.index >= len(m.Responses) {
+		return models.Response{}, nil
+	}
+
+	response := m.Responses[m.index]
+	m.index++
+
+	return response, nil
+}
