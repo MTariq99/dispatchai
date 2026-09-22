@@ -1,0 +1,15 @@
+// This contract defines generic notification-related structures.
+//
+// It describes concepts such as:
+//
+//   - notification request
+//   - recipient
+//   - channel
+//   - message
+//   - delivery result
+//
+// The contract is domain-neutral.
+//
+// Actual notification business rules and delivery ownership remain with
+// the Host Project unless DispatchAI is explicitly deployed as the
+// notification execution service.

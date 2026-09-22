@@ -1,0 +1,10 @@
+// This contract defines the communication model for DispatchAI
+// requests.
+//
+// It describes how a Host Project can send an authenticated request
+// and relevant context to the AI Assistant.
+//
+// The contract should remain domain-neutral.
+//
+// It must not contain fields tied specifically to orders, vehicles,
+// patients, technicians, or another single business domain.

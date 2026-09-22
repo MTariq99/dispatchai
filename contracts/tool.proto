@@ -1,0 +1,21 @@
+// This contract defines the tool capability and tool execution protocol
+// between the AI Assistant and Host Project.
+//
+// It describes:
+//
+//   - tool definitions
+//   - tool names
+//   - input schemas
+//   - tool execution requests
+//   - tool results
+//   - errors
+//   - authorization context
+//   - correlation metadata
+//
+// The critical boundary represented here is:
+//
+//   Assistant requests
+//        ↓
+//   Host Project executes
+//        ↓
+//   Assistant receives result
