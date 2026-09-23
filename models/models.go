@@ -1,5 +1,7 @@
 package models
 
+import "time"
+
 // Config is the root application configuration.
 type Config struct {
 	App           AppConfig           `mapstructure:",squash"`
@@ -11,6 +13,7 @@ type Config struct {
 	Observability ObservabilityConfig `mapstructure:",squash"`
 	SMTP          SMTPConfig          `mapstructure:",squash"`
 	RAGConfig     RAGConfig           `mapstructure:",squash"`
+	ProjectConfig ProjectConfig       `mapstructure:",squash"`
 }
 
 // AppConfig contains application-level configuration.
@@ -131,4 +134,9 @@ type RAGConfig struct {
 	URL            string `mapstructure:"RAG_URL"`
 	ConversationID string `mapstructure:"CONVERSATION_ID"`
 	OpaqueToken    string `mapstructure:"OPAQUE_TOKEN"`
+}
+
+type ProjectConfig struct {
+	BaseURL string
+	Timeout time.Duration
 }

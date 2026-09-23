@@ -24,10 +24,6 @@ type ProjectClient interface {
 }
 
 // Config contains configuration required by the Host Project client.
-type Config struct {
-	BaseURL string
-	Timeout time.Duration
-}
 
 // Client communicates with the Host Project over HTTP.
 type Client struct {
@@ -36,18 +32,18 @@ type Client struct {
 }
 
 // NewClient creates a Host Project client.
-func NewClient(cfg Config) (*Client, error) {
-	if strings.TrimSpace(cfg.BaseURL) == "" {
+func NewClient(cfg *models.Config) (*Client, error) {
+	if strings.TrimSpace(cfg.ProjectConfig.BaseURL) == "" {
 		return nil, fmt.Errorf("project base URL cannot be empty")
 	}
 
-	timeout := cfg.Timeout
+	timeout := cfg.ProjectConfig.Timeout
 	if timeout <= 0 {
 		timeout = 10 * time.Second
 	}
 
 	return &Client{
-		BaseURL: strings.TrimRight(cfg.BaseURL, "/"),
+		BaseURL: strings.TrimRight(cfg.ProjectConfig.BaseURL, "/"),
 		httpClient: &http.Client{
 			Timeout: timeout,
 		},

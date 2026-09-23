@@ -7,8 +7,6 @@ import (
 	"github.com/mtariq99/dispatchai/models"
 )
 
-// This file is responsible for forwarding LLM-generated tool calls
-// to the Host Project.
 //
 // It does NOT execute tools directly.
 //

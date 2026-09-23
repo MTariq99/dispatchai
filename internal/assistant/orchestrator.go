@@ -1,5 +1,13 @@
 package assistant
 
+import (
+	"context"
+
+	"github.com/mtariq99/dispatchai/internal/llm"
+	"github.com/mtariq99/dispatchai/internal/tools"
+	"github.com/mtariq99/dispatchai/models"
+)
+
 // This file contains the main orchestration logic of the AI Assistant.
 //
 // It coordinates the complete reasoning cycle between the LLM,
@@ -34,3 +42,24 @@ package assistant
 //   - business services
 //   - external business APIs
 //   - actual notification delivery
+
+type Orchestrator struct {
+	toolloop     *ToolLoop
+	systemPrompt string
+}
+
+func NewOrchestrator(llm llm.Client, registry *tools.Registry, executer *tools.Executer, model string, maxTokens int, temperature float64) *Orchestrator {
+	return &Orchestrator{
+		toolloop:     NewToolLoop(llm, registry, executer, model, maxTokens, temperature),
+		systemPrompt: DefaultSystemPrompt,
+	}
+}
+
+func (o *Orchestrator) Run(ctx context.Context, execCtx *models.ExecutionContext, userQuery string) (string, error) {
+	conv := NewConversation()
+	if o.systemPrompt != "" {
+		conv.AddSystemMessage(o.systemPrompt)
+	}
+	conv.AddUserMessage(userQuery)
+	return o.toolloop.Run(ctx, conv, execCtx)
+}

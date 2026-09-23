@@ -7,5 +7,5 @@ import (
 )
 
 type Client interface {
-	Generate(ctx context.Context, req models.Request) (models.Response, error)
+	Generate(ctx context.Context, req models.Request) (*models.Response, error)
 }

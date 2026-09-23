@@ -1,0 +1,55 @@
+# ---- Environment files ----
+.env
+.env.dev
+.env.local
+.env.*.local
+.env.production
+.env.staging
+*.env
+
+# ---- Go build artifacts ----
+/bin/
+/dist/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+
+# Compiled binaries matching your cmd/ entrypoints
+/assistant
+/example-project
+
+# ---- Go tooling ----
+vendor/
+go.work
+go.work.sum
+
+# ---- IDE / editor ----
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ---- OS noise ----
+.DS_Store
+Thumbs.db
+
+# ---- Logs ----
+*.log
+logs/
+
+# ---- Secrets / keys (never commit these) ----
+*.pem
+*.key
+secrets.yaml
+secrets.yml
+config.local.yaml
+
+# ---- Local DB / cache files (if you add sqlite, redis dumps, etc. later) ----
+*.db
+*.sqlite
+dump.rdb
