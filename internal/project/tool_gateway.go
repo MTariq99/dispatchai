@@ -51,8 +51,10 @@ func (ptg *ProjectToolGateway) Execute(ctx context.Context, call models.Call, ex
 			},
 		}
 	}
+
 	if call.Name == "" {
 		return &models.Result{
+			CallID:  call.ID,
 			Success: false,
 			Error: &models.Error{
 				Code:    "INVALID_TOOL_CALL",
@@ -60,8 +62,10 @@ func (ptg *ProjectToolGateway) Execute(ctx context.Context, call models.Call, ex
 			},
 		}
 	}
-	if !json.Valid(call.Arguments) {
+
+	if len(call.Arguments) == 0 {
 		return &models.Result{
+			CallID:  call.ID,
 			Success: false,
 			Error: &models.Error{
 				Code:    "INVALID_TOOL_CALL",
@@ -69,44 +73,63 @@ func (ptg *ProjectToolGateway) Execute(ctx context.Context, call models.Call, ex
 			},
 		}
 	}
-	if execCtx.RequestID == "" {
+
+	if !json.Valid(call.Arguments) {
 		return &models.Result{
+			CallID:  call.ID,
 			Success: false,
 			Error: &models.Error{
 				Code:    "INVALID_TOOL_CALL",
-				Message: "tool call Request ID cannot be empty",
-			},
-		}
-	}
-	if execCtx.RequestID == "" {
-		return &models.Result{
-			Success: false,
-			Error: &models.Error{
-				Code:    "INVALID_TOOL_CALL",
-				Message: "tool call Conversation ID cannot be empty",
-			},
-		}
-	}
-	if execCtx.Identity.UserID == "" {
-		return &models.Result{
-			Success: false,
-			Error: &models.Error{
-				Code:    "INVALID_TOOL_CALL",
-				Message: "tool call User ID cannot be empty",
-			},
-		}
-	}
-	if execCtx.Tenant.TenantID == "" {
-		return &models.Result{
-			Success: false,
-			Error: &models.Error{
-				Code:    "INVALID_TOOL_CALL",
-				Message: "tool call Tenant ID cannot be empty",
+				Message: "tool call arguments must contain valid JSON",
 			},
 		}
 	}
 
-	ToolRequest := &models.ToolRequest{
+	if execCtx.RequestID == "" {
+		return &models.Result{
+			CallID:  call.ID,
+			Success: false,
+			Error: &models.Error{
+				Code:    "INVALID_EXECUTION_CONTEXT",
+				Message: "request ID cannot be empty",
+			},
+		}
+	}
+
+	if execCtx.ConversationID == "" {
+		return &models.Result{
+			CallID:  call.ID,
+			Success: false,
+			Error: &models.Error{
+				Code:    "INVALID_EXECUTION_CONTEXT",
+				Message: "conversation ID cannot be empty",
+			},
+		}
+	}
+
+	if execCtx.Identity.UserID == "" {
+		return &models.Result{
+			CallID:  call.ID,
+			Success: false,
+			Error: &models.Error{
+				Code:    "INVALID_EXECUTION_CONTEXT",
+				Message: "user ID cannot be empty",
+			},
+		}
+	}
+
+	if execCtx.Tenant.TenantID == "" {
+		return &models.Result{
+			CallID:  call.ID,
+			Success: false,
+			Error: &models.Error{
+				Code:    "INVALID_EXECUTION_CONTEXT",
+				Message: "tenant ID cannot be empty",
+			},
+		}
+	}
+
+	toolRequest := &models.ToolRequest{
 		RequestID:      execCtx.RequestID,
 		ConversationID: execCtx.ConversationID,
 		ToolName:       call.Name,
@@ -117,21 +140,49 @@ func (ptg *ProjectToolGateway) Execute(ctx context.Context, call models.Call, ex
 		Authorization:  execCtx.Authorization,
 		Trace:          execCtx.Trace,
 	}
-	resp, err := ptg.client.ExecuteTool(ctx, ToolRequest)
+
+	resp, err := ptg.client.ExecuteTool(ctx, toolRequest)
 	if err != nil {
 		return &models.Result{
+			CallID:  call.ID,
 			Success: false,
 			Error: &models.Error{
-				Code:    "Error From Client Project",
-				Message: "Error From Client Project : " + err.Error(),
+				Code:      "PROJECT_CLIENT_ERROR",
+				Message:   "host project request failed",
+				Retryable: true,
 			},
 		}
 	}
-	Res := &models.Result{
+
+	if resp == nil {
+		return &models.Result{
+			CallID:  call.ID,
+			Success: false,
+			Error: &models.Error{
+				Code:      "INVALID_PROJECT_RESPONSE",
+				Message:   "host project returned an empty response",
+				Retryable: false,
+			},
+		}
+	}
+
+	if !resp.Success {
+		return &models.Result{
+			CallID:  resp.CallID,
+			Success: false,
+			Data:    resp.Data,
+			Error: &models.Error{
+				Code:      resp.Error.Code,
+				Message:   resp.Error.Message,
+				Retryable: resp.Error.Retryable,
+			},
+		}
+	}
+
+	return &models.Result{
 		CallID:  resp.CallID,
 		Success: true,
 		Data:    resp.Data,
 		Error:   nil,
 	}
-	return Res
 }
