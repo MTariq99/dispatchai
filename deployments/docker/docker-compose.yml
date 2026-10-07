@@ -1,0 +1,21 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: dispatchai-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: dispatchai
+      POSTGRES_PASSWORD: dispatchai
+      POSTGRES_DB: dispatch
+    ports:
+      - "5438:5432"
+    volumes:
+      - dispatchai_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U dispatchai -d dispatch" ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  dispatchai_postgres_data:
