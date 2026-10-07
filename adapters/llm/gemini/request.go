@@ -69,6 +69,7 @@ func BuildGeminiRequest(req models.Request, defaultMaxTokens int, defaultTempera
 			return nil, fmt.Errorf("unsupported message role %q", message.Role)
 		}
 	}
+
 	if len(req.Tools) > 0 {
 		tools := models.GeminiTool{
 			FunctionDeclarations: make([]models.GeminiFunctionDeclaration, 0, len(req.Tools)),
@@ -85,7 +86,14 @@ func BuildGeminiRequest(req models.Request, defaultMaxTokens int, defaultTempera
 			tools.FunctionDeclarations = append(tools.FunctionDeclarations, extractedTool)
 		}
 		result.Tools = append(result.Tools, tools)
+
+		result.ToolConfig = &models.GeminiToolConfig{
+			FunctionCallingConfig: models.GeminiFunctionCallingConfig{
+				Mode: "AUTO",
+			},
+		}
 	}
+
 	return &result, nil
 }
 

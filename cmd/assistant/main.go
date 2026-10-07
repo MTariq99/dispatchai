@@ -10,39 +10,8 @@ import (
 	"github.com/mtariq99/dispatchai/internal/config"
 	"github.com/mtariq99/dispatchai/internal/project"
 	"github.com/mtariq99/dispatchai/internal/tools"
+	"github.com/mtariq99/dispatchai/models"
 )
-
-// This file is the entry point for the reusable AI Assistant service.
-//
-// Its job is ONLY application startup and dependency wiring.
-//
-// It loads configuration, initializes infrastructure and adapters,
-// creates the Assistant and its dependencies, registers the API routes,
-// and starts the HTTP server.
-//
-// It does NOT contain:
-//   - LLM reasoning logic
-//   - tool execution logic
-//   - business logic
-//   - notification business rules
-//   - database queries
-//
-// The runtime dependency chain is:
-//
-//   Config
-//      ↓
-//   LLM Client
-//   Project Client
-//   Memory
-//   Policy Engine
-//   Audit Store
-//   Observability
-//      ↓
-//   Assistant
-//      ↓
-//   HTTP API
-//
-// The actual business operations remain inside the Host Project.
 
 func main() {
 	cfg, err := config.Load()
@@ -56,6 +25,19 @@ func main() {
 	}
 	toolGateway := project.NewProjectToolGateway(pc)
 	registry := tools.NewRegistry()
+	if err := registry.Register(tools.NewStaticTool(models.Definition{
+		Name:        "get_customers",
+		Description: "List customers for the current tenant, optionally paginated.",
+		Parameters: map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"limit":  map[string]any{"type": "integer", "description": "Max number of customers to return"},
+				"offset": map[string]any{"type": "integer", "description": "Pagination offset"},
+			},
+		},
+	})); err != nil {
+		log.Fatal(err)
+	}
 	executer := tools.NewExecuter(registry, toolGateway)
 
 	handler, err := api.NewHandler(cfg, geminiClient, registry, executer)

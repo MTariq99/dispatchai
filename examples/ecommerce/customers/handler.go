@@ -107,12 +107,29 @@ func (c *Customers) GetCustomers(ctx context.Context, req *models.ToolRequest) (
 		arguments.Offset = 0
 	}
 
-	// 6. Execute actual business operation
-	// customers, err := c.customerService.List(ctx, req.Tenant.TenantID, arguments.Limit, arguments.Offset)
-	// (intentionally omitted for now)
+	allCustomers := []map[string]any{
+		{"id": "cust_001", "name": "Alice Johnson", "email": "alice.johnson@example.com"},
+		{"id": "cust_002", "name": "Brian Smith", "email": "brian.smith@example.com"},
+		{"id": "cust_003", "name": "Carla Mendes", "email": "carla.mendes@example.com"},
+		{"id": "cust_004", "name": "David Lee", "email": "david.lee@example.com"},
+		{"id": "cust_005", "name": "Emma Wilson", "email": "emma.wilson@example.com"},
+		{"id": "cust_006", "name": "Farhan Ali", "email": "farhan.ali@example.com"},
+		{"id": "cust_007", "name": "Grace Kim", "email": "grace.kim@example.com"},
+		{"id": "cust_008", "name": "Hassan Raza", "email": "hassan.raza@example.com"},
+	}
+
+	start := arguments.Offset
+	if start > len(allCustomers) {
+		start = len(allCustomers)
+	}
+	end := start + arguments.Limit
+	if end > len(allCustomers) {
+		end = len(allCustomers)
+	}
+	pagedCustomers := allCustomers[start:end]
 
 	result := map[string]any{
-		"customers": []any{},
+		"customers": pagedCustomers,
 		"limit":     arguments.Limit,
 		"offset":    arguments.Offset,
 	}
@@ -122,7 +139,6 @@ func (c *Customers) GetCustomers(ctx context.Context, req *models.ToolRequest) (
 		return nil, fmt.Errorf("marshal customer result: %w", err)
 	}
 
-	// 7. Return structured ToolResponse
 	return &models.ToolResponse{
 		RequestID: req.RequestID,
 		CallID:    req.CallID,

@@ -8,8 +8,6 @@ import (
 	"github.com/mtariq99/dispatchai/models"
 )
 
-// ToolHandler is the signature every Host Project tool implementation
-// must satisfy. Framework-agnostic on purpose — Gin never appears here.
 type ToolHandler func(ctx context.Context, req *models.ToolRequest) (*models.ToolResponse, error)
 
 type Handler struct {
