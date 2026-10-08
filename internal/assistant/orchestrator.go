@@ -2,8 +2,10 @@ package assistant
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/mtariq99/dispatchai/internal/llm"
+	"github.com/mtariq99/dispatchai/internal/memory"
 	"github.com/mtariq99/dispatchai/internal/tools"
 	"github.com/mtariq99/dispatchai/models"
 )
@@ -46,20 +48,34 @@ import (
 type Orchestrator struct {
 	toolloop     *ToolLoop
 	systemPrompt string
+	store        memory.Store
 }
 
-func NewOrchestrator(llm llm.Client, registry *tools.Registry, executer *tools.Executer, model string, maxTokens int, temperature float64) *Orchestrator {
+func NewOrchestrator(llm llm.Client, registry *tools.Registry, executer *tools.Executer, model string, maxTokens int, temperature float64, store memory.Store) *Orchestrator {
 	return &Orchestrator{
 		toolloop:     NewToolLoop(llm, registry, executer, model, maxTokens, temperature),
 		systemPrompt: DefaultSystemPrompt,
+		store:        store,
 	}
 }
 
 func (o *Orchestrator) Run(ctx context.Context, execCtx *models.ExecutionContext, userQuery string) (string, error) {
-	conv := NewConversation()
-	if o.systemPrompt != "" {
+	priorMessages, err := o.store.Load(execCtx.ConversationID)
+	if err != nil {
+		return "", fmt.Errorf("load conversation Error : %w", err)
+	}
+	conv := &Conversation{Messages: priorMessages}
+
+	if len(priorMessages) == 0 && o.systemPrompt != "" {
 		conv.AddSystemMessage(o.systemPrompt)
 	}
 	conv.AddUserMessage(userQuery)
-	return o.toolloop.Run(ctx, conv, execCtx)
+	answer, err := o.toolloop.Run(ctx, conv, execCtx)
+	if err != nil {
+		return "", err
+	}
+	if saveErr := o.store.Save(execCtx.ConversationID, execCtx.Tenant.TenantID, execCtx.Identity.UserID, conv.Messages); saveErr != nil {
+		return "", saveErr
+	}
+	return answer, nil
 }

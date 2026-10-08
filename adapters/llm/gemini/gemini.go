@@ -58,10 +58,7 @@ func NewGeminiClient(cfg *models.Config) *GeminiClient {
 		apiKey:      cfg.LLM.GeminiAPIKey,
 		maxTokens:   cfg.LLM.MaxTokens,
 		temperature: cfg.LLM.Temperature,
-		limiter: rate.NewLimiter(
-			rate.Every(13*time.Second),
-			1,
-		),
+		limiter:     rate.NewLimiter(rate.Every(13*time.Second), 1),
 	}
 }
 

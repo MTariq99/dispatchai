@@ -97,7 +97,7 @@ func BuildGeminiRequest(req models.Request, defaultMaxTokens int, defaultTempera
 	return &result, nil
 }
 
-func convertSystemMessage(message models.Message) (*models.GeminiContent, error) {
+func convertSystemMessage(message *models.Message) (*models.GeminiContent, error) {
 	if strings.TrimSpace(message.Content) == "" {
 		return nil, fmt.Errorf("system message cannot be empty")
 	}
@@ -110,7 +110,7 @@ func convertSystemMessage(message models.Message) (*models.GeminiContent, error)
 	}, nil
 }
 
-func convertUserMessage(message models.Message) (models.GeminiContent, error) {
+func convertUserMessage(message *models.Message) (models.GeminiContent, error) {
 	return models.GeminiContent{
 		Role: "user",
 		Parts: []models.GeminiPart{
@@ -121,7 +121,7 @@ func convertUserMessage(message models.Message) (models.GeminiContent, error) {
 	}, nil
 }
 
-func convertAssistantMessage(message models.Message) (models.GeminiContent, error) {
+func convertAssistantMessage(message *models.Message) (models.GeminiContent, error) {
 	content := models.GeminiContent{
 		Role:  "model",
 		Parts: make([]models.GeminiPart, 0),
@@ -164,17 +164,14 @@ func convertAssistantMessage(message models.Message) (models.GeminiContent, erro
 	return content, nil
 }
 
-func convertToolMessage(messages []models.Message, message models.Message) (models.GeminiContent, error) {
+func convertToolMessage(messages []*models.Message, message *models.Message) (models.GeminiContent, error) {
 	if strings.TrimSpace(message.ToolCallID) == "" {
 		return models.GeminiContent{}, errors.New(
 			"tool message requires tool call ID",
 		)
 	}
 
-	toolName, found := findToolName(
-		messages,
-		message.ToolCallID,
-	)
+	toolName, found := findToolName(messages, message.ToolCallID)
 
 	if !found {
 		return models.GeminiContent{}, fmt.Errorf("cannot find tool name for tool call %q", message.ToolCallID)
@@ -202,7 +199,7 @@ func convertToolMessage(messages []models.Message, message models.Message) (mode
 	}, nil
 }
 
-func findToolName(messages []models.Message, toolCallID string) (string, bool) {
+func findToolName(messages []*models.Message, toolCallID string) (string, bool) {
 	for _, message := range messages {
 		if message.Role != enums.RoleAssistant {
 			continue

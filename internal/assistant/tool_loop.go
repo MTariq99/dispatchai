@@ -73,13 +73,16 @@ func NewToolLoop(llmClient llm.Client, registry *tools.Registry, executer *tools
 }
 
 func (tl *ToolLoop) Run(ctx context.Context, conv *Conversation, execCtx *models.ExecutionContext) (string, error) {
+	callCounts := make(map[string]int) // fresh per run — resets every new request
+
 	for i := 0; i < MaxToolLoopIterations; i++ {
 		req := BuildRequest(conv, tl.registry, tl.model, tl.maxTokens, tl.temperature)
 
 		resp, err := tl.llm.Generate(ctx, *req)
 		if err != nil {
-			return "", fmt.Errorf("llm generation failed : %w", err)
+			return "", fmt.Errorf("llm generate failed: %w", err)
 		}
+
 		if len(resp.ToolCalls) == 0 {
 			return resp.Content, nil
 		}
@@ -95,11 +98,16 @@ func (tl *ToolLoop) Run(ctx context.Context, conv *Conversation, execCtx *models
 				conv.AddToolResult(tc.ID, fmt.Sprintf(`{"error":%q}`, err.Error()))
 				continue
 			}
-			result := tl.executer.Execute(ctx, &call, execCtx)
+
+			result := tl.executer.Execute(ctx, &call, execCtx, callCounts)
 			conv.AddToolResult(tc.ID, resultToContent(result))
 
+			if result.Success {
+				callCounts[call.Name]++
+			}
 		}
 	}
+
 	return "", fmt.Errorf("tool loop exceeded max iterations (%d)", MaxToolLoopIterations)
 }
 

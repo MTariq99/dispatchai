@@ -4,7 +4,7 @@ import "github.com/mtariq99/dispatchai/internal/enums"
 
 type Request struct {
 	Model       string
-	Messages    []Message
+	Messages    []*Message
 	Tools       []ToolDefinition
 	Temperature float64
 	MaxTokens   int
@@ -43,13 +43,11 @@ type ToolDefinition struct {
 
 // adapter structs
 type GeminiRequest struct {
-	SystemInstruction *GeminiContent `json:"systemInstruction,omitempty"`
-
-	Contents []GeminiContent `json:"contents"`
-
-	Tools []GeminiTool `json:"tools,omitempty"`
-
-	GenerationConfig GeminiGenerationConfig `json:"generationConfig,omitempty"`
+	SystemInstruction *GeminiContent         `json:"systemInstruction,omitempty"`
+	Contents          []GeminiContent        `json:"contents"`
+	Tools             []GeminiTool           `json:"tools,omitempty"`
+	ToolConfig        *GeminiToolConfig      `json:"toolConfig,omitempty"`
+	GenerationConfig  GeminiGenerationConfig `json:"generationConfig,omitempty"`
 }
 
 type GeminiContent struct {
@@ -127,4 +125,13 @@ type GeminiErrorDetail struct {
 
 	QuotaMetric string `json:"quotaMetric"`
 	QuotaID     string `json:"quotaId"`
+}
+
+type GeminiToolConfig struct {
+	FunctionCallingConfig GeminiFunctionCallingConfig `json:"functionCallingConfig,omitempty"`
+}
+
+type GeminiFunctionCallingConfig struct {
+	Mode                 string   `json:"mode,omitempty"`                 // "AUTO", "ANY", or "NONE"
+	AllowedFunctionNames []string `json:"allowedFunctionNames,omitempty"` // optional, restrict to specific tools
 }

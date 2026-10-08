@@ -64,8 +64,7 @@ func (c *Client) ExecuteTool(ctx context.Context, req *models.ToolRequest) (*mod
 		return nil, fmt.Errorf("marshal tool request: %w", err)
 	}
 
-	endpoint := c.BaseURL + "/api/v1/ai/tools/execute"
-
+	endpoint := c.BaseURL + "/tools/execute"
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(body))
 	if err != nil {
 		return nil, fmt.Errorf("create project request: %w", err)
@@ -85,7 +84,6 @@ func (c *Client) ExecuteTool(ctx context.Context, req *models.ToolRequest) (*mod
 	if err != nil {
 		return nil, fmt.Errorf("read project response: %w", err)
 	}
-
 	if resp.StatusCode < http.StatusOK ||
 		resp.StatusCode >= http.StatusMultipleChoices {
 		return nil, fmt.Errorf(

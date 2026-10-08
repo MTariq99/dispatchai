@@ -1,10 +1,14 @@
 package models
 
-import "encoding/json"
+import (
+	"encoding/json"
+
+	"github.com/google/uuid"
+)
 
 type ToolRequest struct {
 	RequestID      string
-	ConversationID string
+	ConversationID uuid.UUID
 	ToolName       string
 	CallID         string
 	Arguments      json.RawMessage
@@ -15,11 +19,11 @@ type ToolRequest struct {
 }
 
 type Identity struct {
-	UserID string
+	UserID uuid.UUID
 }
 
 type TenantContext struct {
-	TenantID string
+	TenantID uuid.UUID
 }
 type AuthorizationContext struct {
 	Roles       []string
@@ -55,7 +59,7 @@ type ResponseMetadata struct {
 }
 type ExecutionContext struct {
 	RequestID      string
-	ConversationID string
+	ConversationID uuid.UUID
 
 	Identity      Identity
 	Tenant        TenantContext

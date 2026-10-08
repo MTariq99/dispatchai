@@ -1,5 +1,13 @@
 package idempotency
 
+import (
+	"crypto/sha256"
+	"encoding/hex"
+
+	"github.com/google/uuid"
+	"github.com/mtariq99/dispatchai/models"
+)
+
 // This file defines the idempotency contract used to prevent duplicate
 // execution.
 //
@@ -26,3 +34,10 @@ package idempotency
 //   Duplicate execution prevented
 //
 // The actual business operation remains Host Project-owned.
+
+func (is *IdempotencyStore) BuildKey(conversationId uuid.UUID, call *models.Call) string {
+	raw := conversationId.String() + "|" + call.Name + "|" + string(call.Arguments)
+
+	sum := sha256.Sum256([]byte(raw))
+	return hex.EncodeToString(sum[:])
+}

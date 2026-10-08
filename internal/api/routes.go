@@ -35,5 +35,5 @@ func NewAssistantHandler(cfg *models.Config, handler *Handler) (*AssistantHandle
 }
 
 func (ah *AssistantHandler) RegisterRoutes(r *gin.Engine) {
-	r.POST("/v1/assistant/chat")
+	r.POST("/v1/assistant/chat", ah.handler.Chat)
 }

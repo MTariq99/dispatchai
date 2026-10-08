@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 
+	"github.com/google/uuid"
 	"github.com/mtariq99/dispatchai/models"
 )
 
@@ -96,7 +97,7 @@ func (ptg *ProjectToolGateway) Execute(ctx context.Context, call models.Call, ex
 		}
 	}
 
-	if execCtx.ConversationID == "" {
+	if execCtx.ConversationID == uuid.Nil {
 		return &models.Result{
 			CallID:  call.ID,
 			Success: false,
@@ -107,7 +108,7 @@ func (ptg *ProjectToolGateway) Execute(ctx context.Context, call models.Call, ex
 		}
 	}
 
-	if execCtx.Identity.UserID == "" {
+	if execCtx.Identity.UserID == uuid.Nil {
 		return &models.Result{
 			CallID:  call.ID,
 			Success: false,
@@ -118,7 +119,7 @@ func (ptg *ProjectToolGateway) Execute(ctx context.Context, call models.Call, ex
 		}
 	}
 
-	if execCtx.Tenant.TenantID == "" {
+	if execCtx.Tenant.TenantID == uuid.Nil {
 		return &models.Result{
 			CallID:  call.ID,
 			Success: false,
@@ -140,7 +141,6 @@ func (ptg *ProjectToolGateway) Execute(ctx context.Context, call models.Call, ex
 		Authorization:  execCtx.Authorization,
 		Trace:          execCtx.Trace,
 	}
-
 	resp, err := ptg.client.ExecuteTool(ctx, toolRequest)
 	if err != nil {
 		return &models.Result{

@@ -137,6 +137,6 @@ type RAGConfig struct {
 }
 
 type ProjectConfig struct {
-	BaseURL string
-	Timeout time.Duration
+	BaseURL string        `mapstructure:"PROJECT_BASE_URL"`
+	Timeout time.Duration `mapstructure:"PROJECT_TIME_OUT"`
 }

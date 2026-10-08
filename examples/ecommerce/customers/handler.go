@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/google/uuid"
 	"github.com/mtariq99/dispatchai/models"
 )
 
@@ -28,7 +29,7 @@ func (c *Customers) GetCustomers(ctx context.Context, req *models.ToolRequest) (
 	}
 
 	// 1. Validate identity
-	if req.Identity.UserID == "" {
+	if req.Identity.UserID == uuid.Nil {
 		return &models.ToolResponse{
 			RequestID: req.RequestID,
 			CallID:    req.CallID,
@@ -42,7 +43,7 @@ func (c *Customers) GetCustomers(ctx context.Context, req *models.ToolRequest) (
 	}
 
 	// 2. Validate tenant
-	if req.Tenant.TenantID == "" {
+	if req.Tenant.TenantID == uuid.Nil {
 		return &models.ToolResponse{
 			RequestID: req.RequestID,
 			CallID:    req.CallID,
@@ -108,14 +109,14 @@ func (c *Customers) GetCustomers(ctx context.Context, req *models.ToolRequest) (
 	}
 
 	allCustomers := []map[string]any{
-		{"id": "cust_001", "name": "Alice Johnson", "email": "alice.johnson@example.com"},
-		{"id": "cust_002", "name": "Brian Smith", "email": "brian.smith@example.com"},
-		{"id": "cust_003", "name": "Carla Mendes", "email": "carla.mendes@example.com"},
-		{"id": "cust_004", "name": "David Lee", "email": "david.lee@example.com"},
-		{"id": "cust_005", "name": "Emma Wilson", "email": "emma.wilson@example.com"},
-		{"id": "cust_006", "name": "Farhan Ali", "email": "farhan.ali@example.com"},
-		{"id": "cust_007", "name": "Grace Kim", "email": "grace.kim@example.com"},
-		{"id": "cust_008", "name": "Hassan Raza", "email": "hassan.raza@example.com"},
+		{"id": "550e8400-e29b-41d4-a716-446655440001", "name": "Alice Johnson", "email": "alice.johnson@example.com"},
+		{"id": "550e8400-e29b-41d4-a716-446655440002", "name": "Brian Smith", "email": "brian.smith@example.com"},
+		{"id": "550e8400-e29b-41d4-a716-446655440003", "name": "Carla Mendes", "email": "carla.mendes@example.com"},
+		{"id": "550e8400-e29b-41d4-a716-446655440004", "name": "David Lee", "email": "david.lee@example.com"},
+		{"id": "550e8400-e29b-41d4-a716-446655440005", "name": "Emma Wilson", "email": "emma.wilson@example.com"},
+		{"id": "550e8400-e29b-41d4-a716-446655440006", "name": "Farhan Ali", "email": "farhan.ali@example.com"},
+		{"id": "550e8400-e29b-41d4-a716-446655440007", "name": "Grace Kim", "email": "grace.kim@example.com"},
+		{"id": "550e8400-e29b-41d4-a716-446655440008", "name": "Hassan Raza", "email": "hassan.raza@example.com"},
 	}
 
 	start := arguments.Offset

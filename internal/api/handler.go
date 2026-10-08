@@ -9,6 +9,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/mtariq99/dispatchai/internal/assistant"
 	"github.com/mtariq99/dispatchai/internal/llm"
+	"github.com/mtariq99/dispatchai/internal/memory"
 	"github.com/mtariq99/dispatchai/internal/tools"
 	"github.com/mtariq99/dispatchai/models"
 )
@@ -17,7 +18,7 @@ type Handler struct {
 	assistant *assistant.Assistant
 }
 
-func NewHandler(cfg *models.Config, llm llm.Client, registry *tools.Registry, executer *tools.Executer) (*Handler, error) {
+func NewHandler(cfg *models.Config, llm llm.Client, registry *tools.Registry, executer *tools.Executer, store memory.Store) (*Handler, error) {
 	if cfg == nil {
 		return nil, fmt.Errorf("config is empty")
 	}
@@ -39,7 +40,7 @@ func NewHandler(cfg *models.Config, llm llm.Client, registry *tools.Registry, ex
 	if cfg.LLM.Temperature < 0 {
 		cfg.LLM.Temperature = 0.7
 	}
-	orchestrator := assistant.NewOrchestrator(llm, registry, executer, cfg.LLM.Model, cfg.LLM.MaxTokens, cfg.LLM.Temperature)
+	orchestrator := assistant.NewOrchestrator(llm, registry, executer, cfg.LLM.Model, cfg.LLM.MaxTokens, cfg.LLM.Temperature, store)
 
 	return &Handler{
 		assistant: assistant.NewAssistant(orchestrator),

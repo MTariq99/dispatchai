@@ -32,24 +32,24 @@ import (
 // Live business state must come from Host Project tools.
 
 type Conversation struct {
-	Messages []models.Message
+	Messages []*models.Message
 }
 
 func NewConversation() *Conversation {
 	return &Conversation{
-		Messages: make([]models.Message, 0),
+		Messages: make([]*models.Message, 0),
 	}
 }
 
 func (c *Conversation) AddSystemMessage(content string) {
-	c.Messages = append(c.Messages, models.Message{
+	c.Messages = append(c.Messages, &models.Message{
 		Role:    enums.RoleAssistant,
 		Content: content,
 	})
 }
 
 func (c *Conversation) AddUserMessage(content string) {
-	c.Messages = append(c.Messages, models.Message{
+	c.Messages = append(c.Messages, &models.Message{
 		Role:    enums.RoleUser,
 		Content: content,
 	})
@@ -57,11 +57,11 @@ func (c *Conversation) AddUserMessage(content string) {
 
 func (c *Conversation) AddAssistantMessage(msg models.Message) {
 	msg.Role = enums.RoleAssistant
-	c.Messages = append(c.Messages, msg)
+	c.Messages = append(c.Messages, &msg)
 }
 
 func (c *Conversation) AddToolResult(toolCallID, content string) {
-	c.Messages = append(c.Messages, models.Message{
+	c.Messages = append(c.Messages, &models.Message{
 		Role:       enums.RoleTool,
 		ToolCallID: toolCallID,
 		Content:    content,

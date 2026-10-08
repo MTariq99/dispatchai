@@ -14,35 +14,24 @@ import (
 type RateLimitError struct {
 	StatusCode int
 	Message    string
-
 	RetryAfter time.Duration
 	DailyQuota bool
-
-	Raw string
+	Raw        string
 }
 
 func (e *RateLimitError) Error() string {
 	switch {
 	case e.RetryAfter > 0 && e.DailyQuota:
-		return fmt.Sprintf(
-			"gemini rate limited: retry after %s; daily quota exhausted",
-			e.RetryAfter,
-		)
+		return fmt.Sprintf("gemini rate limited: retry after %s; daily quota exhausted", e.RetryAfter)
 
 	case e.RetryAfter > 0:
-		return fmt.Sprintf(
-			"gemini rate limited: retry after %s",
-			e.RetryAfter,
-		)
+		return fmt.Sprintf("gemini rate limited: retry after %s", e.RetryAfter)
 
 	case e.DailyQuota:
 		return "gemini rate limited: daily quota exhausted"
 
 	case e.Message != "":
-		return fmt.Sprintf(
-			"gemini rate limited: %s",
-			e.Message,
-		)
+		return fmt.Sprintf("gemini rate limited: %s", e.Message)
 
 	default:
 		return "gemini rate limited"
@@ -107,10 +96,7 @@ func parseGeminiRateLimit(raw []byte) *RateLimitError {
 			}
 
 		case "type.googleapis.com/google.rpc.QuotaFailure":
-			if strings.Contains(
-				detail.QuotaID,
-				"PerDay",
-			) {
+			if strings.Contains(detail.QuotaID, "PerDay") {
 				result.DailyQuota = true
 			}
 		}
