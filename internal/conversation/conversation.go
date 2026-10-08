@@ -1,4 +1,4 @@
-package assistant
+package conversation
 
 import (
 	"github.com/mtariq99/dispatchai/internal/enums"
@@ -43,7 +43,7 @@ func NewConversation() *Conversation {
 
 func (c *Conversation) AddSystemMessage(content string) {
 	c.Messages = append(c.Messages, &models.Message{
-		Role:    enums.RoleAssistant,
+		Role:    enums.RoleSystem,
 		Content: content,
 	})
 }

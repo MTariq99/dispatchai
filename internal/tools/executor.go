@@ -10,39 +10,14 @@ import (
 	"github.com/mtariq99/dispatchai/models"
 )
 
-//
-// It does NOT execute tools directly.
-//
-// The execution path is:
-//
-//   LLM
-//      ↓
-//   Tool Call
-//      ↓
-//   Tool Executor
-//      ↓
-//   Project Client
-//      ↓
-//   Host Project
-//      ↓
-//   Business Service / Database
-//      ↓
-//   Tool Result
-//
-// The executor validates the call, sends it across the project boundary,
-// handles communication errors, and converts the response into the
-// internal ToolResult representation.
-//
-// This boundary is critical to keeping DispatchAI domain-agnostic.
-
 type Executer struct {
 	registry        *Registry
 	toolGateWay     project.ToolGateway
 	policyEngine    *policy.Engine
-	IdempotentStore *idempotency.IdempotencyStore
+	IdempotentStore idempotency.ToolIdempotency
 }
 
-func NewExecutor(registry *Registry, gateway project.ToolGateway, policyEngine *policy.Engine, idem *idempotency.IdempotencyStore) *Executer {
+func NewExecutor(registry *Registry, gateway project.ToolGateway, policyEngine *policy.Engine, idem idempotency.ToolIdempotency) *Executer {
 	return &Executer{
 		registry:        registry,
 		toolGateWay:     gateway,
@@ -75,7 +50,7 @@ func (e *Executer) Execute(ctx context.Context, call *models.Call, excCtx *model
 	}
 	key := e.IdempotentStore.BuildKey(excCtx.ConversationID, call)
 
-	result, exists, err := e.IdempotentStore.Get(key)
+	result, exists, err := e.IdempotentStore.Get(ctx, excCtx.ConversationID, call.ID)
 	if err != nil {
 		return &models.Result{
 			CallID:  call.ID,
@@ -90,7 +65,7 @@ func (e *Executer) Execute(ctx context.Context, call *models.Call, excCtx *model
 	if exists {
 		return result
 	}
-	reserved, err := e.IdempotentStore.Reserve(key, excCtx.ConversationID, call.Name)
+	reserved, err := e.IdempotentStore.Reserve(ctx, excCtx.ConversationID, call.ID, call.Name, call.Arguments)
 	if !reserved {
 		return &models.Result{
 			CallID:  call.ID,
@@ -128,7 +103,7 @@ func (e *Executer) Execute(ctx context.Context, call *models.Call, excCtx *model
 	}
 	finalResult := e.toolGateWay.Execute(ctx, *call, *excCtx)
 
-	if setErr := e.IdempotentStore.Set(key, excCtx.ConversationID, call.Name, finalResult); setErr != nil {
+	if setErr := e.IdempotentStore.Complete(ctx, excCtx.ConversationID, call.ID, finalResult); setErr != nil {
 		fmt.Printf("warning: failed to store idempotency key %s: %v\n", key, setErr)
 	}
 

@@ -10,7 +10,6 @@ import (
 	"github.com/mtariq99/dispatchai/internal/api"
 	"github.com/mtariq99/dispatchai/internal/config"
 	"github.com/mtariq99/dispatchai/internal/idempotency"
-	"github.com/mtariq99/dispatchai/internal/memory"
 	"github.com/mtariq99/dispatchai/internal/policy"
 	"github.com/mtariq99/dispatchai/internal/project"
 	"github.com/mtariq99/dispatchai/internal/tools"
@@ -79,10 +78,10 @@ func main() {
 		log.Fatal(err)
 	}
 	policyEngine := policy.NewEngine(policy.MaxNotificationsPerRun(1))
-	IdempotencyStore := idempotency.NewIdempotencyStore(db)
+	IdempotencyStore := idempotency.NewToolIdempotency(db)
+
 	executor := tools.NewExecutor(registry, toolGateway, policyEngine, IdempotencyStore)
-	store := memory.NewMemoryStore(db)
-	handler, err := api.NewHandler(cfg, geminiClient, registry, executor, store)
+	handler, err := api.NewHandler(cfg, geminiClient, registry, executor)
 
 	router := gin.Default()
 	AssistantHandler, err := api.NewAssistantHandler(cfg, handler)

@@ -11,7 +11,7 @@ import (
 )
 
 func parseGeminiResponse(raw []byte) (*models.Response, error) {
-	var response models.GeminiResponse
+	var response GeminiResponse
 	if err := json.Unmarshal(raw, &response); err != nil {
 		return nil, fmt.Errorf("error decoding gemini response: %w", err)
 	}

@@ -11,8 +11,12 @@ type ChatRequest struct {
 	Permissions    []string  `json:"permissions"`
 }
 type ChatResponse struct {
-	RequestID string `json:"request_id"`
-	Answer    string `json:"answer"`
+	RequestID      string     `json:"request_id"`
+	ConversationID uuid.UUID  `json:"conversation_id"`
+	RunID          uuid.UUID  `json:"run_id"`
+	Status         string     `json:"status"`
+	Answer         string     `json:"answer,omitempty"`
+	ToolCalls      []ToolCall `json:"tool_calls,omitempty"`
 }
 
 type ErrorResponse struct {

@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/mtariq99/dispatchai/internal/conversation"
 	"github.com/mtariq99/dispatchai/internal/llm"
-	"github.com/mtariq99/dispatchai/internal/memory"
 	"github.com/mtariq99/dispatchai/internal/tools"
 	"github.com/mtariq99/dispatchai/models"
 )
@@ -48,10 +48,10 @@ import (
 type Orchestrator struct {
 	toolloop     *ToolLoop
 	systemPrompt string
-	store        memory.Store
+	store        conversation.Store
 }
 
-func NewOrchestrator(llm llm.Client, registry *tools.Registry, executer *tools.Executer, model string, maxTokens int, temperature float64, store memory.Store) *Orchestrator {
+func NewOrchestrator(llm llm.Client, registry *tools.Registry, executer *tools.Executer, model string, maxTokens int, temperature float64, store conversation.Store) *Orchestrator {
 	return &Orchestrator{
 		toolloop:     NewToolLoop(llm, registry, executer, model, maxTokens, temperature),
 		systemPrompt: DefaultSystemPrompt,
@@ -60,16 +60,46 @@ func NewOrchestrator(llm llm.Client, registry *tools.Registry, executer *tools.E
 }
 
 func (o *Orchestrator) Run(ctx context.Context, execCtx *models.ExecutionContext, userQuery string) (string, error) {
+	fmt.Println("================================================")
+	fmt.Println("ORCHESTRATOR RUN")
+	fmt.Println("conversation:", execCtx.ConversationID)
+	fmt.Println("user:", execCtx.Identity.UserID)
+	fmt.Println("query:", userQuery)
+	fmt.Println("================================================")
 	priorMessages, err := o.store.Load(execCtx.ConversationID)
 	if err != nil {
 		return "", fmt.Errorf("load conversation Error : %w", err)
 	}
-	conv := &Conversation{Messages: priorMessages}
+	fmt.Println("LOADED MESSAGES:", len(priorMessages))
+
+	for i, msg := range priorMessages {
+		fmt.Printf(
+			"[%d] role=%s content=%q toolCallID=%q toolCalls=%d\n",
+			i,
+			msg.Role,
+			msg.Content,
+			msg.ToolCallID,
+			len(msg.ToolCalls),
+		)
+	}
+	conv := &conversation.Conversation{Messages: priorMessages}
 
 	if len(priorMessages) == 0 && o.systemPrompt != "" {
 		conv.AddSystemMessage(o.systemPrompt)
 	}
 	conv.AddUserMessage(userQuery)
+	fmt.Println("AFTER ADD USER MESSAGE:", len(conv.Messages))
+
+	for i, msg := range conv.Messages {
+		fmt.Printf(
+			"[%d] role=%s content=%q toolCallID=%q toolCalls=%d\n",
+			i,
+			msg.Role,
+			msg.Content,
+			msg.ToolCallID,
+			len(msg.ToolCalls),
+		)
+	}
 	answer, err := o.toolloop.Run(ctx, conv, execCtx)
 	if err != nil {
 		return "", err

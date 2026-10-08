@@ -1,4 +1,4 @@
-package models
+package gemini
 
 import "github.com/mtariq99/dispatchai/internal/enums"
 

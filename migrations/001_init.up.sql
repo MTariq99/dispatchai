@@ -67,14 +67,26 @@ CREATE INDEX idx_tool_executions_run ON tool_executions (run_id);
 CREATE INDEX idx_tool_executions_tool ON tool_executions (tool_name);
 
 CREATE TABLE idempotency_keys (
-    key TEXT PRIMARY KEY,
+    key TEXT NOT NULL,
+    tenant_id UUID NOT NULL,
     conversation_id UUID NOT NULL,
-    operation TEXT NOT NULL,
+    request_id UUID NOT NULL,
+    run_id UUID,
+    operation VARCHAR(64) NOT NULL,
     status VARCHAR(32) NOT NULL,
     response JSONB,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    expires_at TIMESTAMPTZ
+    expires_at TIMESTAMPTZ,
+    PRIMARY KEY (tenant_id, key),
+    UNIQUE (request_id),
+    CONSTRAINT fk_idempotency_run FOREIGN KEY (run_id) REFERENCES conversation_runs (id) ON DELETE SET NULL
 );
+
+CREATE INDEX idx_idempotency_conversation ON idempotency_keys (tenant_id, conversation_id);
+
+CREATE INDEX idx_idempotency_run ON idempotency_keys (run_id);
+
+CREATE INDEX idx_idempotency_expires ON idempotency_keys (expires_at);
 
 CREATE INDEX idx_idempotency_tenant ON idempotency_keys (conversation_id);
 

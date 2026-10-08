@@ -35,7 +35,7 @@ import (
 //
 // The actual business operation remains Host Project-owned.
 
-func (is *IdempotencyStore) BuildKey(conversationId uuid.UUID, call *models.Call) string {
+func (is *ToolIdempotencyStore) BuildKey(conversationId uuid.UUID, call *models.Call) string {
 	raw := conversationId.String() + "|" + call.Name + "|" + string(call.Arguments)
 
 	sum := sha256.Sum256([]byte(raw))

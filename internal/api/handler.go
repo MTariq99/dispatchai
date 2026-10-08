@@ -1,24 +1,18 @@
 package api
 
 import (
-	"crypto/rand"
-	"encoding/hex"
 	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/mtariq99/dispatchai/internal/assistant"
 	"github.com/mtariq99/dispatchai/internal/llm"
-	"github.com/mtariq99/dispatchai/internal/memory"
 	"github.com/mtariq99/dispatchai/internal/tools"
 	"github.com/mtariq99/dispatchai/models"
 )
 
-type Handler struct {
-	assistant *assistant.Assistant
-}
+type Handler struct{}
 
-func NewHandler(cfg *models.Config, llm llm.Client, registry *tools.Registry, executer *tools.Executer, store memory.Store) (*Handler, error) {
+func NewHandler(cfg *models.Config, llm llm.Client, registry *tools.Registry, executer *tools.Executer) (*Handler, error) {
 	if cfg == nil {
 		return nil, fmt.Errorf("config is empty")
 	}
@@ -40,11 +34,7 @@ func NewHandler(cfg *models.Config, llm llm.Client, registry *tools.Registry, ex
 	if cfg.LLM.Temperature < 0 {
 		cfg.LLM.Temperature = 0.7
 	}
-	orchestrator := assistant.NewOrchestrator(llm, registry, executer, cfg.LLM.Model, cfg.LLM.MaxTokens, cfg.LLM.Temperature, store)
-
-	return &Handler{
-		assistant: assistant.NewAssistant(orchestrator),
-	}, nil
+	return &Handler{}, nil
 }
 
 func (h *Handler) Chat(c *gin.Context) {
@@ -57,35 +47,18 @@ func (h *Handler) Chat(c *gin.Context) {
 		return
 	}
 
-	execCtx := models.ExecutionContext{
-		RequestID:      generateRequestID(),
-		ConversationID: req.ConversationID,
-		Identity:       models.Identity{UserID: req.UserID},
-		Tenant:         models.TenantContext{TenantID: req.TenantID},
-		Authorization: models.AuthorizationContext{
-			Roles:       req.Roles,
-			Permissions: req.Permissions,
-		},
-	}
+	// execCtx := models.ExecutionContext{
+	// 	RequestID:      generateRequestID(),
+	// 	ConversationID: req.ConversationID,
+	// 	Identity:       models.Identity{UserID: req.UserID},
+	// 	Tenant:         models.TenantContext{TenantID: req.TenantID},
+	// 	Authorization: models.AuthorizationContext{
+	// 		Roles:       req.Roles,
+	// 		Permissions: req.Permissions,
+	// 	},
+	// }
 
-	answer, err := h.assistant.HandleRequest(c.Request.Context(), req.Message, execCtx)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, models.ErrorResponse{
-			Error: err.Error(),
-		})
-		return
-	}
-
-	c.JSON(http.StatusOK, models.ChatResponse{
-		RequestID: execCtx.RequestID,
-		Answer:    answer,
+	c.JSON(http.StatusNotImplemented, models.ErrorResponse{
+		Error: "run orchestration is not wired yet",
 	})
-}
-
-// generateRequestID produces a short random hex ID. Good enough for now;
-// swap for github.com/google/uuid later if you want standard UUIDs.
-func generateRequestID() string {
-	b := make([]byte, 8)
-	_, _ = rand.Read(b)
-	return hex.EncodeToString(b)
 }

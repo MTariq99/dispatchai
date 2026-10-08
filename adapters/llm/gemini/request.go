@@ -10,7 +10,7 @@ import (
 	"github.com/mtariq99/dispatchai/models"
 )
 
-func BuildGeminiRequest(req models.Request, defaultMaxTokens int, defaultTemperature float64) (*models.GeminiRequest, error) {
+func BuildGeminiRequest(req models.Request, defaultMaxTokens int, defaultTemperature float64) (*GeminiRequest, error) {
 	if len(req.Messages) == 0 {
 		return nil, fmt.Errorf("llm request must contain atleast one message")
 	}
@@ -28,9 +28,9 @@ func BuildGeminiRequest(req models.Request, defaultMaxTokens int, defaultTempera
 	if temperature < 0 {
 		return nil, fmt.Errorf("temperature cannot be negative")
 	}
-	result := models.GeminiRequest{
-		Contents: make([]models.GeminiContent, 0),
-		GenerationConfig: models.GeminiGenerationConfig{
+	result := GeminiRequest{
+		Contents: make([]GeminiContent, 0),
+		GenerationConfig: GeminiGenerationConfig{
 			MaxOutputTokens: maxTokens,
 			Temperature:     temperature,
 		},
@@ -71,14 +71,14 @@ func BuildGeminiRequest(req models.Request, defaultMaxTokens int, defaultTempera
 	}
 
 	if len(req.Tools) > 0 {
-		tools := models.GeminiTool{
-			FunctionDeclarations: make([]models.GeminiFunctionDeclaration, 0, len(req.Tools)),
+		tools := GeminiTool{
+			FunctionDeclarations: make([]GeminiFunctionDeclaration, 0, len(req.Tools)),
 		}
 		for _, tool := range req.Tools {
 			if strings.TrimSpace(tool.Name) == "" {
 				return nil, fmt.Errorf("tool name cannot be empty")
 			}
-			extractedTool := models.GeminiFunctionDeclaration{
+			extractedTool := GeminiFunctionDeclaration{
 				Name:        tool.Name,
 				Description: tool.Description,
 				Parameters:  tool.Parameters,
@@ -87,8 +87,8 @@ func BuildGeminiRequest(req models.Request, defaultMaxTokens int, defaultTempera
 		}
 		result.Tools = append(result.Tools, tools)
 
-		result.ToolConfig = &models.GeminiToolConfig{
-			FunctionCallingConfig: models.GeminiFunctionCallingConfig{
+		result.ToolConfig = &GeminiToolConfig{
+			FunctionCallingConfig: GeminiFunctionCallingConfig{
 				Mode: "AUTO",
 			},
 		}
@@ -97,12 +97,12 @@ func BuildGeminiRequest(req models.Request, defaultMaxTokens int, defaultTempera
 	return &result, nil
 }
 
-func convertSystemMessage(message *models.Message) (*models.GeminiContent, error) {
+func convertSystemMessage(message *models.Message) (*GeminiContent, error) {
 	if strings.TrimSpace(message.Content) == "" {
 		return nil, fmt.Errorf("system message cannot be empty")
 	}
-	return &models.GeminiContent{
-		Parts: []models.GeminiPart{
+	return &GeminiContent{
+		Parts: []GeminiPart{
 			{
 				Text: message.Content,
 			},
@@ -110,10 +110,10 @@ func convertSystemMessage(message *models.Message) (*models.GeminiContent, error
 	}, nil
 }
 
-func convertUserMessage(message *models.Message) (models.GeminiContent, error) {
-	return models.GeminiContent{
+func convertUserMessage(message *models.Message) (GeminiContent, error) {
+	return GeminiContent{
 		Role: "user",
-		Parts: []models.GeminiPart{
+		Parts: []GeminiPart{
 			{
 				Text: message.Content,
 			},
@@ -121,16 +121,16 @@ func convertUserMessage(message *models.Message) (models.GeminiContent, error) {
 	}, nil
 }
 
-func convertAssistantMessage(message *models.Message) (models.GeminiContent, error) {
-	content := models.GeminiContent{
+func convertAssistantMessage(message *models.Message) (GeminiContent, error) {
+	content := GeminiContent{
 		Role:  "model",
-		Parts: make([]models.GeminiPart, 0),
+		Parts: make([]GeminiPart, 0),
 	}
 
 	if message.Content != "" {
 		content.Parts = append(
 			content.Parts,
-			models.GeminiPart{
+			GeminiPart{
 				Text: message.Content,
 			},
 		)
@@ -138,15 +138,15 @@ func convertAssistantMessage(message *models.Message) (models.GeminiContent, err
 
 	for _, toolCall := range message.ToolCalls {
 		if strings.TrimSpace(toolCall.Name) == "" {
-			return models.GeminiContent{}, errors.New(
+			return GeminiContent{}, errors.New(
 				"assistant tool call name cannot be empty",
 			)
 		}
 
 		content.Parts = append(
 			content.Parts,
-			models.GeminiPart{
-				FunctionCall: &models.GeminiFunctionCall{
+			GeminiPart{
+				FunctionCall: &GeminiFunctionCall{
 					ID:   toolCall.ID,
 					Name: toolCall.Name,
 					Args: toolCall.Args,
@@ -156,7 +156,7 @@ func convertAssistantMessage(message *models.Message) (models.GeminiContent, err
 	}
 
 	if len(content.Parts) == 0 {
-		return models.GeminiContent{}, errors.New(
+		return GeminiContent{}, errors.New(
 			"assistant message contains neither content nor tool calls",
 		)
 	}
@@ -164,9 +164,9 @@ func convertAssistantMessage(message *models.Message) (models.GeminiContent, err
 	return content, nil
 }
 
-func convertToolMessage(messages []*models.Message, message *models.Message) (models.GeminiContent, error) {
+func convertToolMessage(messages []*models.Message, message *models.Message) (GeminiContent, error) {
 	if strings.TrimSpace(message.ToolCallID) == "" {
-		return models.GeminiContent{}, errors.New(
+		return GeminiContent{}, errors.New(
 			"tool message requires tool call ID",
 		)
 	}
@@ -174,7 +174,7 @@ func convertToolMessage(messages []*models.Message, message *models.Message) (mo
 	toolName, found := findToolName(messages, message.ToolCallID)
 
 	if !found {
-		return models.GeminiContent{}, fmt.Errorf("cannot find tool name for tool call %q", message.ToolCallID)
+		return GeminiContent{}, fmt.Errorf("cannot find tool name for tool call %q", message.ToolCallID)
 	}
 
 	response := map[string]any{}
@@ -185,11 +185,11 @@ func convertToolMessage(messages []*models.Message, message *models.Message) (mo
 		}
 	}
 
-	return models.GeminiContent{
+	return GeminiContent{
 		Role: "user",
-		Parts: []models.GeminiPart{
+		Parts: []GeminiPart{
 			{
-				FunctionResponse: &models.GeminiFunctionResponse{
+				FunctionResponse: &GeminiFunctionResponse{
 					ID:       message.ToolCallID,
 					Name:     toolName,
 					Response: response,

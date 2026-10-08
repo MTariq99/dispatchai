@@ -7,8 +7,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-
-	"github.com/mtariq99/dispatchai/models"
 )
 
 type RateLimitError struct {
@@ -67,8 +65,8 @@ func (e *ProviderError) Error() string {
 
 // geminiErrorResponse represents the common Gemini REST error envelope.
 
-func parseGeminiError(raw []byte) models.GeminiErrorResponse {
-	var response models.GeminiErrorResponse
+func parseGeminiError(raw []byte) GeminiErrorResponse {
+	var response GeminiErrorResponse
 
 	// We intentionally ignore the unmarshal error here.
 	//
