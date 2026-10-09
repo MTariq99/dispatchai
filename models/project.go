@@ -8,6 +8,7 @@ import (
 
 type ToolRequest struct {
 	RequestID      string
+	RunID          uuid.UUID
 	ConversationID uuid.UUID
 	ToolName       string
 	CallID         string
@@ -59,10 +60,10 @@ type ResponseMetadata struct {
 }
 type ExecutionContext struct {
 	RequestID      string
+	RunID          uuid.UUID
 	ConversationID uuid.UUID
-
-	Identity      Identity
-	Tenant        TenantContext
-	Authorization AuthorizationContext
-	Trace         TraceContext
+	Identity       Identity
+	Tenant         TenantContext
+	Authorization  AuthorizationContext
+	Trace          TraceContext
 }

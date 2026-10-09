@@ -4,10 +4,15 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	"github.com/google/uuid"
 	"github.com/mtariq99/dispatchai/models"
+)
+
+var ErrToolCallConflict = errors.New(
+	"tool call ID reused with different tool name or arguments",
 )
 
 type ToolIdempotency interface {
@@ -15,7 +20,6 @@ type ToolIdempotency interface {
 	Reserve(ctx context.Context, runID uuid.UUID, callID string, toolName string, arguments json.RawMessage) (bool, error)
 	Complete(ctx context.Context, runID uuid.UUID, callID string, result *models.Result) error
 	Fail(ctx context.Context, runID uuid.UUID, callID string, err *models.Error) error
-	BuildKey(conversationId uuid.UUID, call *models.Call) string
 }
 
 type ToolIdempotencyStore struct {
@@ -45,35 +49,18 @@ func (s *ToolIdempotencyStore) Reserve(ctx context.Context, runID uuid.UUID, cal
 		return false, fmt.Errorf("tool arguments must be valid JSON")
 	}
 
-	executionID := uuid.New()
-
-	const query = `
+	const insertQuery = `
 		INSERT INTO tool_executions (
-			id,
-			run_id,
-			call_id,
-			tool_name,
-			arguments,
-			status,
-			attempt
+			id, run_id, call_id, tool_name, arguments, status, attempt
 		)
-		VALUES (
-			$1,
-			$2,
-			$3,
-			$4,
-			$5,
-			'pending',
-			1
-		)
-		ON CONFLICT (run_id, call_id)
-		DO NOTHING
+		VALUES ($1, $2, $3, $4, $5, 'pending', 1)
+		ON CONFLICT (run_id, call_id) DO NOTHING
 	`
 
 	result, err := s.db.ExecContext(
 		ctx,
-		query,
-		executionID,
+		insertQuery,
+		uuid.New(),
 		runID,
 		callID,
 		toolName,
@@ -88,14 +75,56 @@ func (s *ToolIdempotencyStore) Reserve(ctx context.Context, runID uuid.UUID, cal
 		return false, fmt.Errorf("check tool execution reservation: %w", err)
 	}
 
-	if rowsAffected == 0 {
-		return false, nil
+	if rowsAffected == 1 {
+		return true, nil
 	}
 
-	return true, nil
+	const existingQuery = `
+		SELECT tool_name, arguments
+		FROM tool_executions
+		WHERE run_id = $1 AND call_id = $2
+	`
+
+	var existingToolName string
+	var existingArguments []byte
+
+	err = s.db.QueryRowContext(
+		ctx,
+		existingQuery,
+		runID,
+		callID,
+	).Scan(&existingToolName, &existingArguments)
+	if err != nil {
+		return false, fmt.Errorf("inspect existing tool execution: %w", err)
+	}
+
+	var existingJSON any
+	var requestedJSON any
+
+	if err := json.Unmarshal(existingArguments, &existingJSON); err != nil {
+		return false, fmt.Errorf("decode existing tool arguments: %w", err)
+	}
+	if err := json.Unmarshal(arguments, &requestedJSON); err != nil {
+		return false, fmt.Errorf("decode requested tool arguments: %w", err)
+	}
+
+	existingCanonical, err := json.Marshal(existingJSON)
+	if err != nil {
+		return false, fmt.Errorf("canonicalize existing tool arguments: %w", err)
+	}
+	requestedCanonical, err := json.Marshal(requestedJSON)
+	if err != nil {
+		return false, fmt.Errorf("canonicalize requested tool arguments: %w", err)
+	}
+
+	if existingToolName != toolName || string(existingCanonical) != string(requestedCanonical) {
+		return false, ErrToolCallConflict
+	}
+
+	return false, nil
 }
 
-func (tis *ToolIdempotencyStore) Get(ctx context.Context, runID uuid.UUID, callID string) (*models.Result, bool, error) {
+func (s *ToolIdempotencyStore) Get(ctx context.Context, runID uuid.UUID, callID string) (*models.Result, bool, error) {
 	if runID == uuid.Nil {
 		return nil, false, fmt.Errorf("run ID cannot be nil")
 	}
@@ -104,44 +133,161 @@ func (tis *ToolIdempotencyStore) Get(ctx context.Context, runID uuid.UUID, callI
 	}
 
 	const query = `
-		SELECT result
+		SELECT status, result, error_code, error_message, retryable
 		FROM tool_executions
-		WHERE run_id = $1 AND call_id = $2 AND status = 'completed'
+		WHERE run_id = $1 AND call_id = $2
 	`
 
-	var responseJSON []byte
-	err := tis.db.QueryRowContext(
-		ctx,
-		query,
-		runID,
-		callID,
-	).Scan(&responseJSON)
+	var (
+		status       string
+		resultJSON   []byte
+		errorCode    sql.NullString
+		errorMessage sql.NullString
+		retryable    bool
+	)
 
-	if err == sql.ErrNoRows {
+	err := s.db.QueryRowContext(ctx, query, runID, callID).Scan(
+		&status,
+		&resultJSON,
+		&errorCode,
+		&errorMessage,
+		&retryable,
+	)
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, false, nil
 	}
-
 	if err != nil {
 		return nil, false, fmt.Errorf("get tool execution: %w", err)
 	}
 
-	if len(responseJSON) == 0 {
+	switch status {
+	case "completed":
+		if len(resultJSON) == 0 {
+			return nil, false, errors.New("completed tool execution has no persisted result")
+		}
+
+		var result models.Result
+		if err := json.Unmarshal(resultJSON, &result); err != nil {
+			return nil, false, fmt.Errorf("unmarshal tool execution result: %w", err)
+		}
+
+		return &result, true, nil
+
+	case "failed":
+		if !errorCode.Valid || !errorMessage.Valid {
+			return nil, false, errors.New("failed tool execution has incomplete error details")
+		}
+
+		return &models.Result{
+			CallID:  callID,
+			Success: false,
+			Error: &models.Error{
+				Code:      errorCode.String,
+				Message:   errorMessage.String,
+				Retryable: retryable,
+			},
+		}, true, nil
+
+	case "pending":
 		return nil, false, nil
+
+	default:
+		return nil, false, fmt.Errorf(
+			"unknown tool execution status %q",
+			status,
+		)
 	}
-
-	var result models.Result
-
-	if err := json.Unmarshal(responseJSON, &result); err != nil {
-		return nil, false, fmt.Errorf("unmarshal tool execution response: %w", err)
-	}
-
-	return &result, true, nil
 }
 
-func (tis *ToolIdempotencyStore) Complete(ctx context.Context, runID uuid.UUID, callID string, result *models.Result) error {
+func (s *ToolIdempotencyStore) Complete(ctx context.Context, runID uuid.UUID, callID string, result *models.Result) error {
+	if runID == uuid.Nil {
+		return errors.New("run id is required")
+	}
+	if callID == "" {
+		return errors.New("call id is required")
+	}
+	if result == nil {
+		return errors.New("result is required")
+	}
+
+	resultJSON, err := json.Marshal(result)
+	if err != nil {
+		return fmt.Errorf("marshal tool result: %w", err)
+	}
+
+	query := `
+		UPDATE tool_executions
+		SET
+			status = 'completed',
+			result = $3,
+			completed_at = NOW()
+		WHERE run_id = $1
+		  AND call_id = $2
+		  AND status = 'pending'
+	`
+
+	res, err := s.db.ExecContext(ctx, query, runID, callID, resultJSON)
+	if err != nil {
+		return fmt.Errorf("complete tool execution: %w", err)
+	}
+
+	rows, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("get affected rows: %w", err)
+	}
+
+	if rows != 1 {
+		return errors.New("tool execution is not pending")
+	}
+
 	return nil
 }
 
-func (tis *ToolIdempotencyStore) Fail(ctx context.Context, runID uuid.UUID, callID string, err *models.Error) error {
+func (s *ToolIdempotencyStore) Fail(ctx context.Context, runID uuid.UUID, callID string, errResult *models.Error) error {
+	if runID == uuid.Nil {
+		return errors.New("run id is required")
+	}
+	if callID == "" {
+		return errors.New("call id is required")
+	}
+	if errResult == nil {
+		return errors.New("error result is required")
+	}
+
+	query := `
+		UPDATE tool_executions
+		SET
+			status = 'failed',
+			error_code = $3,
+			error_message = $4,
+			retryable = $5,
+			completed_at = NOW()
+		WHERE run_id = $1
+		  AND call_id = $2
+		  AND status = 'pending'
+	`
+
+	res, err := s.db.ExecContext(
+		ctx,
+		query,
+		runID,
+		callID,
+		errResult.Code,
+		errResult.Message,
+		errResult.Retryable,
+	)
+	if err != nil {
+		return fmt.Errorf("fail tool execution: %w", err)
+	}
+
+	rows, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("get affected rows: %w", err)
+	}
+
+	if rows != 1 {
+		return errors.New("tool execution is not pending")
+	}
+
 	return nil
 }

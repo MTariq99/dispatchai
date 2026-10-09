@@ -34,20 +34,18 @@ type GeminiClient struct {
 	DefaultModel string
 }
 
-func NewGeminiClient(cfg *models.Config) *GeminiClient {
-	if cfg.LLM.GenerateURL == "" {
-		fmt.Println("cfg.LLM.GenerateURL is empty")
-		return nil
+func NewGeminiClient(cfg *models.Config) (*GeminiClient, error) {
+	if cfg == nil {
+		return nil, fmt.Errorf("gemini config is nil")
 	}
-
-	if cfg.LLM.GeminiAPIKey == "" {
-		fmt.Println("cfg.LLM.GeminiAPIKey is empty")
-		return nil
+	if strings.TrimSpace(cfg.LLM.GenerateURL) == "" {
+		return nil, fmt.Errorf("gemini generate URL is required")
 	}
-
+	if strings.TrimSpace(cfg.LLM.GeminiAPIKey) == "" {
+		return nil, fmt.Errorf("gemini API key is required")
+	}
 	if cfg.LLM.MaxTokens <= 0 {
-		fmt.Println("cfg.LLM.MaxTokens must be greater than zero")
-		return nil
+		return nil, fmt.Errorf("gemini max tokens must be greater than zero")
 	}
 
 	return &GeminiClient{
@@ -59,7 +57,7 @@ func NewGeminiClient(cfg *models.Config) *GeminiClient {
 		maxTokens:   cfg.LLM.MaxTokens,
 		temperature: cfg.LLM.Temperature,
 		limiter:     rate.NewLimiter(rate.Every(13*time.Second), 1),
-	}
+	}, nil
 }
 
 func (c *GeminiClient) Generate(ctx context.Context, req models.Request) (*models.Response, error) {
@@ -74,11 +72,6 @@ func (c *GeminiClient) Generate(ctx context.Context, req models.Request) (*model
 	if err != nil {
 		return nil, err
 	}
-	debugBody, err := json.MarshalIndent(geminiReq, "", "  ")
-	if err == nil {
-		fmt.Println(string(debugBody))
-	}
-	fmt.Println("debugBody>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>", string(debugBody))
 	body, err := json.Marshal(geminiReq)
 	if err != nil {
 		return nil, err
@@ -87,7 +80,6 @@ func (c *GeminiClient) Generate(ctx context.Context, req models.Request) (*model
 	if err != nil {
 		return nil, err
 	}
-	fmt.Println("requestURL>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>", requestURL)
 
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, requestURL, bytes.NewReader(body))
 	if err != nil {

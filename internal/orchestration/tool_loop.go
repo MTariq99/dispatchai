@@ -83,8 +83,14 @@ func (tl *ToolLoop) Run(ctx context.Context, conv *conversation.Conversation, ex
 		if err != nil {
 			return "", fmt.Errorf("llm generate failed: %w", err)
 		}
-		fmt.Println("resp>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>", resp)
+		if resp == nil {
+			return "", fmt.Errorf("llm generate returned a nil response")
+		}
 		if len(resp.ToolCalls) == 0 {
+			conv.AddAssistantMessage(models.Message{
+				Content: resp.Content,
+			})
+
 			return resp.Content, nil
 		}
 

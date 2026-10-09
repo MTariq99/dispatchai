@@ -140,6 +140,7 @@ func (ptg *ProjectToolGateway) Execute(ctx context.Context, call models.Call, ex
 		Tenant:         execCtx.Tenant,
 		Authorization:  execCtx.Authorization,
 		Trace:          execCtx.Trace,
+		RunID:          execCtx.RunID,
 	}
 	resp, err := ptg.client.ExecuteTool(ctx, toolRequest)
 	if err != nil {
@@ -167,8 +168,19 @@ func (ptg *ProjectToolGateway) Execute(ctx context.Context, call models.Call, ex
 	}
 
 	if !resp.Success {
+		if resp.Error == nil {
+			return &models.Result{
+				CallID:  call.ID,
+				Success: false,
+				Error: &models.Error{
+					Code:    "INVALID_PROJECT_RESPONSE",
+					Message: "host project returned an unsuccessful response without error details",
+				},
+			}
+		}
+
 		return &models.Result{
-			CallID:  resp.CallID,
+			CallID:  call.ID,
 			Success: false,
 			Data:    resp.Data,
 			Error: &models.Error{
