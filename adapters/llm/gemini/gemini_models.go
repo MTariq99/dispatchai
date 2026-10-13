@@ -41,7 +41,6 @@ type ToolDefinition struct {
 	Parameters  map[string]any
 }
 
-// adapter structs
 type GeminiRequest struct {
 	SystemInstruction *GeminiContent         `json:"systemInstruction,omitempty"`
 	Contents          []GeminiContent        `json:"contents"`

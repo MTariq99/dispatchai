@@ -42,22 +42,10 @@ func main() {
 		log.Fatalf("initialize Gemini client: %v", err)
 	}
 
-	// -------------------------------------------------------------------------
-	// Run
-	// -------------------------------------------------------------------------
-
 	runStore := storage.NewRunStore(db)
 	runService := run.NewRunService(runStore)
 
-	// -------------------------------------------------------------------------
-	// Conversation
-	// -------------------------------------------------------------------------
-
 	conversationStore := conversation.NewMemoryStore(db)
-
-	// -------------------------------------------------------------------------
-	// Project / Host integration
-	// -------------------------------------------------------------------------
 
 	pc, err := project.NewClient(cfg)
 	if err != nil {
@@ -65,10 +53,6 @@ func main() {
 	}
 
 	toolGateway := project.NewProjectToolGateway(pc)
-
-	// -------------------------------------------------------------------------
-	// Tool registry
-	// -------------------------------------------------------------------------
 
 	registry := tools.NewRegistry()
 
@@ -132,33 +116,11 @@ func main() {
 		log.Fatal(err)
 	}
 
-	// -------------------------------------------------------------------------
-	// Policy
-	// -------------------------------------------------------------------------
-
-	policyEngine := policy.NewEngine(
-		policy.MaxNotificationsPerRun(1),
-	)
-
-	// -------------------------------------------------------------------------
-	// Tool idempotency
-	//
-	// Protects business tool execution inside a Run.
-	// Key: (run_id, call_id)
-	// -------------------------------------------------------------------------
+	policyEngine := policy.NewEngine(policy.MaxNotificationsPerRun(1))
 
 	toolIdempotency := idempotency.NewToolIdempotency(db)
 
-	executor := tools.NewExecutor(
-		registry,
-		toolGateway,
-		policyEngine,
-		toolIdempotency,
-	)
-
-	// -------------------------------------------------------------------------
-	// Orchestration
-	// -------------------------------------------------------------------------
+	executor := tools.NewExecutor(registry, toolGateway, policyEngine, toolIdempotency)
 
 	orchestrator := assistant.NewOrchestrator(
 		geminiClient,
@@ -206,10 +168,6 @@ func main() {
 	if err != nil {
 		log.Fatalf("assistant handler: %v", err)
 	}
-
-	// -------------------------------------------------------------------------
-	// HTTP server
-	// -------------------------------------------------------------------------
 
 	router := gin.Default()
 

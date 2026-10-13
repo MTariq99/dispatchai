@@ -36,11 +36,6 @@ func (e *RateLimitError) Error() string {
 	}
 }
 
-// ProviderError represents a non-429 provider failure.
-//
-// The caller can inspect StatusCode instead of parsing error strings.
-//
-// Raw is retained for diagnostics but must not be logged blindly.
 type ProviderError struct {
 	StatusCode int
 	Status     string
@@ -103,14 +98,6 @@ func parseGeminiRateLimit(raw []byte) *RateLimitError {
 	return result
 }
 
-// parseRetryDelay handles Google's duration representation.
-//
-// Examples:
-//
-//	42s
-//	1.5s
-//	250ms
-//	2m
 func parseRetryDelay(value string) (time.Duration, error) {
 	value = strings.TrimSpace(value)
 

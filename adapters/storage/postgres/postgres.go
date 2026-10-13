@@ -68,7 +68,6 @@ func InitDB(cfg *models.Config, logger *zap.Logger) (*sql.DB, error) {
 	return db, nil
 }
 
-// BuildLogger ...
 func BuildLogger(env string) (*zap.Logger, error) {
 	if env == "production" {
 		return zap.NewProduction()
