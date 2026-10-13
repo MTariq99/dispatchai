@@ -19,11 +19,11 @@ type DefinitionRecord struct {
 }
 
 type Repository interface {
-	Create(ctx context.Context, integrationID string, definition models.Definition, idempotencyKey string, requestHash []byte) (record DefinitionRecord, replayed bool, err error)
-	Get(ctx context.Context, integrationID string, toolID string) (DefinitionRecord, error)
-	ListEnabled(ctx context.Context, integrationID string) ([]DefinitionRecord, error)
-	Update(ctx context.Context, integrationID string, toolID string, expectedVersion int, definition models.Definition) (DefinitionRecord, error)
-	SetEnabled(ctx context.Context, integrationID string, toolID string, expectedVersion int, enabled bool) (DefinitionRecord, error)
-	SoftDelete(ctx context.Context, integrationID string, toolID string, expectedVersion int) error
-	GetForExecution(ctx context.Context, integrationID string, toolID string, expectedVersion int) (DefinitionRecord, error)
+	CreateToolRegistry(ctx context.Context, integrationID string, defination *models.Definition, idempotencyKey string, requestHash []byte) (*DefinitionRecord, bool, error)
+	GetTool(ctx context.Context, integrationID, toolID string) (*DefinitionRecord, error)
+	ListEnabled(ctx context.Context, integrationID string) ([]*DefinitionRecord, error)
+	Update(ctx context.Context, integrationID, toolID string, expectedVersion int, definition *models.Definition) (*DefinitionRecord, error)
+	SetEnabled(ctx context.Context, integrationID, toolID string, expectedVersion int, enabled bool) (*DefinitionRecord, error)
+	SoftDelete(ctx context.Context, integrationID, toolID string, expectedVersion int) error
+	GetForExecution(ctx context.Context, integrationID, toolID string, expectedVersion int) (*DefinitionRecord, error)
 }

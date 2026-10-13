@@ -154,25 +154,23 @@ func main() {
 	// It does not know about Gemini, tools, registry, or tool execution.
 	// -------------------------------------------------------------------------
 
-	handler, err := api.NewHandler(
-		cfg,
-		assistantService,
-		runService,
-		requestIdempotency,
-	)
+	handler, err := api.NewHandler(cfg, assistantService, runService, requestIdempotency)
 	if err != nil {
 		log.Fatalf("handler: %v", err)
 	}
+	ToolRegistryStore := storage.NewToolRegistry(db)
+	ToolRegistryService, err := tools.NewRegistrationService(ToolRegistryStore)
 
-	assistantHandler, err := api.NewAssistantHandler(cfg, handler)
+	ToolRegistryHandler, err := tools.NewToolRegistryHandler(cfg, ToolRegistryService)
+
+	assistantHandler, err := api.NewAssistantHandler(cfg, handler, ToolRegistryHandler)
 	if err != nil {
 		log.Fatalf("assistant handler: %v", err)
 	}
 
 	router := gin.Default()
-
-	assistantHandler.RegisterRoutes(router)
-
+	integrationAuthenticator := storage.NewIntegrationAuthenticator(db)
+	assistantHandler.RegisterRoutes(router, integrationAuthenticator)
 	fmt.Println("DispatchAI server is listening on :8989")
 
 	if err := router.Run(":8989"); err != nil {

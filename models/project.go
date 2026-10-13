@@ -62,6 +62,7 @@ type ExecutionContext struct {
 	RequestID      string
 	RunID          uuid.UUID
 	ConversationID uuid.UUID
+	IntegrationID  string
 	Identity       Identity
 	Tenant         TenantContext
 	Authorization  AuthorizationContext

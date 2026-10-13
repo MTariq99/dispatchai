@@ -3,9 +3,11 @@ package models
 import "encoding/json"
 
 type Call struct {
-	ID        string
-	Name      string
-	Arguments json.RawMessage
+	ID                string
+	Name              string
+	Arguments         json.RawMessage
+	ToolID            string `json:"-"`
+	DefinitionVersion int    `json:"-"`
 }
 
 type Definition struct {
