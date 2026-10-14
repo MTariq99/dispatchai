@@ -1,0 +1,122 @@
+package authn
+
+import (
+	"crypto/sha256"
+	"encoding/hex"
+	"fmt"
+	"net/http"
+	"strings"
+
+	"github.com/mtariq99/dispatchai/internal/enums"
+	errs "github.com/mtariq99/dispatchai/internal/errors"
+)
+
+type SignedHeaders struct {
+	ClientID      string
+	KeyID         string
+	Timestamp     string
+	Nonce         string
+	RequestID     string
+	ContentSHA256 string
+	Algorithm     string
+}
+
+type CanonicalRequest struct {
+	Method  string
+	Path    string
+	Query   string
+	Headers SignedHeaders
+}
+
+func BodySHA256(body []byte) string {
+	sum := sha256.Sum256(body)
+	return hex.EncodeToString(sum[:])
+}
+
+// BuildCanonicalRequest serializes request fields in a stable, versioned format.
+//
+// Protocol details:
+//   - Fields are separated by a single LF byte.
+//   - There is no trailing LF.
+//   - An empty query is represented by an empty line.
+//   - Path must be URL.EscapedPath() from the incoming request.
+//   - Query must be URL.RawQuery from the incoming request.
+//   - The body hash must be lowercase hexadecimal SHA-256.
+
+func BuildCanonicalReq(req CanonicalRequest) ([]byte, error) {
+	h := req.Headers
+
+	if req.Method == "" || req.Path == "" {
+		return nil, fmt.Errorf("%w: method and path are required", errs.ErrInvalidRequest)
+	}
+	if req.Method != strings.ToUpper(req.Method) {
+		return nil, fmt.Errorf("%w: method must be uppercase", errs.ErrInvalidRequest)
+	}
+	if !strings.HasPrefix(req.Path, "/") {
+		return nil, fmt.Errorf("%w: path must be absolute", errs.ErrInvalidRequest)
+	}
+
+	if strings.ContainsAny(req.Path, "\r\n") ||
+		strings.ContainsAny(req.Query, "\r\n") {
+		return nil, fmt.Errorf("%w: invalid path or query", errs.ErrInvalidRequest)
+	}
+
+	fields := []string{
+		h.ClientID,
+		h.KeyID,
+		h.Timestamp,
+		h.Nonce,
+		h.RequestID,
+	}
+	for _, field := range fields {
+		if strings.TrimSpace(field) == "" ||
+			strings.ContainsAny(field, "\r\n") {
+			return nil, fmt.Errorf("%w: missing or invalid signed header", errs.ErrInvalidRequest)
+		}
+	}
+	if h.Algorithm != enums.SignatureAlgorithm {
+		return nil, fmt.Errorf("%w: unsupported signature algorithm", errs.ErrInvalidRequest)
+	}
+	if len(h.ContentSHA256) != 64 || strings.ToLower(h.ContentSHA256) != h.ContentSHA256 {
+		return nil, errs.ErrInvalidBodyHash
+	}
+
+	decodedHash, err := hex.DecodeString(h.ContentSHA256)
+	if err != nil || len(decodedHash) != sha256.Size {
+		return nil, errs.ErrInvalidBodyHash
+	}
+
+	canonical := strings.Join([]string{
+		enums.CanonicalVersion,
+		req.Method,
+		req.Path,
+		req.Query,
+		h.ClientID,
+		h.KeyID,
+		h.Timestamp,
+		h.Nonce,
+		h.RequestID,
+		h.ContentSHA256,
+		h.Algorithm,
+	}, "\n")
+
+	return []byte(canonical), nil
+}
+
+func CanonicalRequestFromHTTP(r *http.Request, headers SignedHeaders) (CanonicalRequest, error) {
+	if r == nil || r.URL == nil {
+		return CanonicalRequest{}, fmt.Errorf("%w: request URL is missing", errs.ErrInvalidRequest)
+	}
+
+	path := r.URL.EscapedPath()
+	if path == "" {
+		path = "/"
+	}
+
+	return CanonicalRequest{
+		Method:  r.Method,
+		Path:    path,
+		Query:   r.URL.RawQuery,
+		Headers: headers,
+	}, nil
+}

@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"os"
 
 	"github.com/gin-gonic/gin"
 
@@ -12,6 +13,7 @@ import (
 	"github.com/mtariq99/dispatchai/internal/config"
 	"github.com/mtariq99/dispatchai/internal/conversation"
 	"github.com/mtariq99/dispatchai/internal/idempotency"
+	"github.com/mtariq99/dispatchai/internal/integration"
 	assistant "github.com/mtariq99/dispatchai/internal/orchestration"
 	"github.com/mtariq99/dispatchai/internal/policy"
 	"github.com/mtariq99/dispatchai/internal/project"
@@ -122,54 +124,39 @@ func main() {
 
 	executor := tools.NewExecutor(registry, toolGateway, policyEngine, toolIdempotency)
 
-	orchestrator := assistant.NewOrchestrator(
-		geminiClient,
-		registry,
-		executor,
-		cfg.LLM.Model,
-		cfg.LLM.MaxTokens,
-		cfg.LLM.Temperature,
-		conversationStore,
-	)
+	orchestrator := assistant.NewOrchestrator(geminiClient, registry, executor, cfg.LLM.Model, cfg.LLM.MaxTokens, cfg.LLM.Temperature, conversationStore)
 
 	assistantService := assistant.NewAssistant(orchestrator)
-
-	// -------------------------------------------------------------------------
-	// Request idempotency
-	//
-	// Protects the API request before a Run exists.
-	// Key: (tenant_id, idempotency_key)
-	// -------------------------------------------------------------------------
-
 	requestIdempotency := idempotency.NewIdempotencyStore(db)
-
-	// -------------------------------------------------------------------------
-	// API
-	//
-	// Handler only knows about:
-	//   - Assistant
-	//   - RunService
-	//   - RequestIdempotency
-	//
-	// It does not know about Gemini, tools, registry, or tool execution.
-	// -------------------------------------------------------------------------
-
 	handler, err := api.NewHandler(cfg, assistantService, runService, requestIdempotency)
 	if err != nil {
 		log.Fatalf("handler: %v", err)
 	}
 	ToolRegistryStore := storage.NewToolRegistry(db)
 	ToolRegistryService, err := tools.NewRegistrationService(ToolRegistryStore)
+	if err != nil {
+		log.Fatalf("tool registry service: %v", err)
+	}
 
 	ToolRegistryHandler, err := tools.NewToolRegistryHandler(cfg, ToolRegistryService)
+	if err != nil {
+		log.Fatalf("tool registry handler: %v", err)
+	}
+	integrationStore := storage.NewIntegrationOnboardingStore(db)
+	OnboardingService, err := integration.NewOnboardingService(integrationStore)
+	if err != nil {
+		log.Fatalf("integration onboarding service: %v", err)
+	}
+	onboardingHandler := integration.NewIntegrationOnboardingHandler(OnboardingService, os.Getenv("DISPATCHAI_ONBOARDING_TOKEN"))
 
-	assistantHandler, err := api.NewAssistantHandler(cfg, handler, ToolRegistryHandler)
+	assistantHandler, err := api.NewAssistantHandler(cfg, handler, ToolRegistryHandler, onboardingHandler)
 	if err != nil {
 		log.Fatalf("assistant handler: %v", err)
 	}
 
 	router := gin.Default()
 	integrationAuthenticator := storage.NewIntegrationAuthenticator(db)
+
 	assistantHandler.RegisterRoutes(router, integrationAuthenticator)
 	fmt.Println("DispatchAI server is listening on :8989")
 
