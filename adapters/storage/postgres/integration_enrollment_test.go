@@ -21,7 +21,7 @@ import (
 	_ "github.com/lib/pq"
 
 	errs "github.com/mtariq99/dispatchai/internal/errors"
-	"github.com/mtariq99/dispatchai/internal/integration"
+	"github.com/mtariq99/dispatchai/models"
 )
 
 func openEnrollmentTestDB(t *testing.T) *sql.DB {
@@ -147,7 +147,7 @@ func TestEnrollKeySuccess(t *testing.T) {
 	fx := validEnrollment(t, db)
 	pub := newTestPublicKey(t)
 
-	got, err := store.EnrollKey(context.Background(), integration.EnrollKeyParams{
+	got, err := store.EnrollKey(context.Background(), models.EnrollKeyParams{
 		TokenHash: fx.tokenHash, KeyID: "key-1", PublicKey: pub,
 	})
 	if err != nil {
@@ -181,7 +181,7 @@ func TestEnrollKeyUnknownToken(t *testing.T) {
 	store := NewIntegrationEnrollmentStore(db)
 	unknown := sha256.Sum256([]byte("no-such-token-" + uuid.NewString()))
 
-	_, err := store.EnrollKey(context.Background(), integration.EnrollKeyParams{
+	_, err := store.EnrollKey(context.Background(), models.EnrollKeyParams{
 		TokenHash: unknown[:], KeyID: "key-1", PublicKey: newTestPublicKey(t),
 	})
 	if !errors.Is(err, errs.ErrEnrollmentTokenInvalid) {
@@ -194,7 +194,7 @@ func TestEnrollKeyExpiredToken(t *testing.T) {
 	store := NewIntegrationEnrollmentStore(db)
 	fx := seedEnrollment(t, db, "pending", 2*time.Hour, -time.Hour)
 
-	_, err := store.EnrollKey(context.Background(), integration.EnrollKeyParams{
+	_, err := store.EnrollKey(context.Background(), models.EnrollKeyParams{
 		TokenHash: fx.tokenHash, KeyID: "key-1", PublicKey: newTestPublicKey(t),
 	})
 	if !errors.Is(err, errs.ErrEnrollmentTokenInvalid) {
@@ -211,12 +211,12 @@ func TestEnrollKeyReusedToken(t *testing.T) {
 	fx := validEnrollment(t, db)
 	ctx := context.Background()
 
-	if _, err := store.EnrollKey(ctx, integration.EnrollKeyParams{
+	if _, err := store.EnrollKey(ctx, models.EnrollKeyParams{
 		TokenHash: fx.tokenHash, KeyID: "key-1", PublicKey: newTestPublicKey(t),
 	}); err != nil {
 		t.Fatalf("first enrollment: %v", err)
 	}
-	_, err := store.EnrollKey(ctx, integration.EnrollKeyParams{
+	_, err := store.EnrollKey(ctx, models.EnrollKeyParams{
 		TokenHash: fx.tokenHash, KeyID: "key-2", PublicKey: newTestPublicKey(t),
 	})
 	if !errors.Is(err, errs.ErrEnrollmentTokenInvalid) {
@@ -247,7 +247,7 @@ func TestEnrollKeyRejectsInvalidPublicKeyWithoutBurningToken(t *testing.T) {
 	}
 	for name, pub := range cases {
 		t.Run(name, func(t *testing.T) {
-			_, err := store.EnrollKey(context.Background(), integration.EnrollKeyParams{
+			_, err := store.EnrollKey(context.Background(), models.EnrollKeyParams{
 				TokenHash: fx.tokenHash, KeyID: "key-1", PublicKey: pub,
 			})
 			if !errors.Is(err, errs.ErrInvalidPublicKey) {
@@ -266,7 +266,7 @@ func TestEnrollKeyRejectsInvalidKeyID(t *testing.T) {
 	fx := validEnrollment(t, db)
 
 	for _, keyID := range []string{"", " lead", "has space", "new\nline", "-dash", strings.Repeat("a", 129)} {
-		_, err := store.EnrollKey(context.Background(), integration.EnrollKeyParams{
+		_, err := store.EnrollKey(context.Background(), models.EnrollKeyParams{
 			TokenHash: fx.tokenHash, KeyID: keyID, PublicKey: newTestPublicKey(t),
 		})
 		if !errors.Is(err, errs.ErrInvalidEnrollmentRequest) {
@@ -290,7 +290,7 @@ func TestEnrollKeyDuplicateKeyIDRollsBack(t *testing.T) {
 		t.Fatalf("seed existing key: %v", err)
 	}
 
-	_, err := store.EnrollKey(context.Background(), integration.EnrollKeyParams{
+	_, err := store.EnrollKey(context.Background(), models.EnrollKeyParams{
 		TokenHash: fx.tokenHash, KeyID: "dup", PublicKey: newTestPublicKey(t),
 	})
 	if !errors.Is(err, errs.ErrKeyIDConflict) {
@@ -311,7 +311,7 @@ func TestEnrollKeyIneligibleIntegrationRollsBack(t *testing.T) {
 			store := NewIntegrationEnrollmentStore(db)
 			fx := seedEnrollment(t, db, status, time.Minute, 14*time.Minute)
 
-			_, err := store.EnrollKey(context.Background(), integration.EnrollKeyParams{
+			_, err := store.EnrollKey(context.Background(), models.EnrollKeyParams{
 				TokenHash: fx.tokenHash, KeyID: "key-1", PublicKey: newTestPublicKey(t),
 			})
 			if !errors.Is(err, errs.ErrIntegrationNotEnrollable) {
@@ -349,7 +349,7 @@ func TestEnrollKeyConcurrentSameToken(t *testing.T) {
 		go func(i int) {
 			defer wg.Done()
 			<-start
-			_, err := store.EnrollKey(context.Background(), integration.EnrollKeyParams{
+			_, err := store.EnrollKey(context.Background(), models.EnrollKeyParams{
 				TokenHash: fx.tokenHash, KeyID: fmt.Sprintf("key-%d", i), PublicKey: keys[i],
 			})
 			results <- err

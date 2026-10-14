@@ -24,6 +24,11 @@ type fakePendingIntegrationStore struct {
 	err                      error
 	calls                    int
 }
+type fakeEnrollmentStore struct {
+	params models.EnrollKeyParams
+	err    error
+	calls  int
+}
 
 func (s *fakePendingIntegrationStore) CreatePendingIntegration(
 	_ context.Context,
@@ -42,16 +47,11 @@ func (s *fakePendingIntegrationStore) CreatePendingIntegration(
 	return s.err
 }
 
-func newTestHandler(
-	t *testing.T,
-	store PendingIntegrationStore,
-	token string,
-) *gin.Engine {
+func newTestHandler(t *testing.T, store PendingIntegrationStore, token string) *gin.Engine {
 	t.Helper()
-
 	gin.SetMode(gin.TestMode)
 
-	service, err := NewOnboardingService(store)
+	service, err := NewOnboardingService(store, &fakeEnrollmentStore{})
 	if err != nil {
 		t.Fatalf("create onboarding service: %v", err)
 	}
@@ -59,7 +59,6 @@ func newTestHandler(
 	handler := NewIntegrationOnboardingHandler(service, token)
 	router := gin.New()
 	handler.RegisterRoutes(router)
-
 	return router
 }
 
@@ -238,9 +237,11 @@ func TestCreateIntegrationPersistenceFailure(t *testing.T) {
 	}
 }
 
-func TestNewOnboardingServiceRejectsNilStore(t *testing.T) {
-	_, err := NewOnboardingService(nil)
-	if err == nil {
-		t.Fatal("expected an error for nil store")
+func TestNewOnboardingServiceRejectsNilStores(t *testing.T) {
+	if _, err := NewOnboardingService(nil, &fakeEnrollmentStore{}); err == nil {
+		t.Fatal("expected an error for nil onboarding store")
+	}
+	if _, err := NewOnboardingService(&fakePendingIntegrationStore{}, nil); err == nil {
+		t.Fatal("expected an error for nil enrollment store")
 	}
 }

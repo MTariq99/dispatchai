@@ -33,6 +33,5 @@ func (ah *AssistantHandler) RegisterRoutes(r *gin.Engine, authenticator Integrat
 
 	toolRoutes := r.Group("/v1/integrations/tools", IntegrationAuthMiddleware(authenticator))
 	ah.ToolRegistryHandler.RegisterRoutes(toolRoutes)
-	OnboardingRoutes := r.Group("/v1/admin")
-	ah.OnboardingHandler.RegisterRoutes(OnboardingRoutes)
+	ah.OnboardingHandler.RegisterRoutes(r)
 }

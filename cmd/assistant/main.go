@@ -143,7 +143,9 @@ func main() {
 		log.Fatalf("tool registry handler: %v", err)
 	}
 	integrationStore := storage.NewIntegrationOnboardingStore(db)
-	OnboardingService, err := integration.NewOnboardingService(integrationStore)
+	enrollmentStore := storage.NewIntegrationEnrollmentStore(db)
+
+	OnboardingService, err := integration.NewOnboardingService(integrationStore, enrollmentStore)
 	if err != nil {
 		log.Fatalf("integration onboarding service: %v", err)
 	}
