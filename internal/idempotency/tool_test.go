@@ -13,6 +13,7 @@ import (
 
 	"github.com/google/uuid"
 	_ "github.com/lib/pq"
+	errs "github.com/mtariq99/dispatchai/internal/errors"
 	"github.com/mtariq99/dispatchai/models"
 )
 
@@ -113,7 +114,7 @@ func TestToolIdempotencyReserveIntegration(t *testing.T) {
 			secondTool: "cancel_order",
 			secondArgs: `{"sku":"book","quantity":1}`,
 			wantFirst:  true,
-			wantErr:    ErrToolCallConflict,
+			wantErr:    errs.ErrToolCallConflict,
 		},
 		{
 			name:       "same key with different arguments conflicts",
@@ -122,7 +123,7 @@ func TestToolIdempotencyReserveIntegration(t *testing.T) {
 			secondTool: "create_order",
 			secondArgs: `{"sku":"book","quantity":2}`,
 			wantFirst:  true,
-			wantErr:    ErrToolCallConflict,
+			wantErr:    errs.ErrToolCallConflict,
 		},
 		{
 			name:       "JSON object key order is equivalent",

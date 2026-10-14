@@ -149,8 +149,8 @@ func main() {
 	if err != nil {
 		log.Fatalf("integration onboarding service: %v", err)
 	}
-	onboardingHandler := integration.NewIntegrationOnboardingHandler(OnboardingService, os.Getenv("DISPATCHAI_ONBOARDING_TOKEN"))
-
+	onboardingHandler := integration.NewIntegrationOnboardingHandler(OnboardingService)
+	adminToken := os.Getenv("DISPATCHAI_ONBOARDING_TOKEN")
 	assistantHandler, err := api.NewAssistantHandler(cfg, handler, ToolRegistryHandler, onboardingHandler)
 	if err != nil {
 		log.Fatalf("assistant handler: %v", err)
@@ -159,7 +159,7 @@ func main() {
 	router := gin.Default()
 	integrationAuthenticator := storage.NewIntegrationAuthenticator(db)
 
-	assistantHandler.RegisterRoutes(router, integrationAuthenticator)
+	assistantHandler.RegisterRoutes(router, integrationAuthenticator, adminToken)
 	fmt.Println("DispatchAI server is listening on :8989")
 
 	if err := router.Run(":8989"); err != nil {

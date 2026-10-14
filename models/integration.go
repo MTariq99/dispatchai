@@ -3,6 +3,8 @@ package models
 import (
 	"encoding/json"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 type CreateIntegrationRequest struct {
@@ -41,4 +43,18 @@ type EnrolledKey struct {
 	IntegrationID string
 	ClientID      string
 	KeyID         string
+}
+
+type ToggleIntegrationReq struct {
+	Status string `json:"status"`
+}
+
+type HostIntegration struct {
+	ID             uuid.UUID       `json:"id,omitempty"`
+	IntegrationKey string          `json:"integration_key,omitempty"`
+	DisplayName    string          `json:"display_name,omitempty"`
+	Status         string          `json:"status,omitempty"`
+	MetaData       json.RawMessage `json:"meta_data,omitempty"`
+	CreatedAt      time.Time       `json:"created_at,omitempty"`
+	UpdatedAt      time.Time       `json:"updated_at,omitempty"`
 }

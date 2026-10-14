@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/mtariq99/dispatchai/internal/middleware"
 	"github.com/mtariq99/dispatchai/models"
 )
 
@@ -56,9 +57,9 @@ func newTestHandler(t *testing.T, store PendingIntegrationStore, token string) *
 		t.Fatalf("create onboarding service: %v", err)
 	}
 
-	handler := NewIntegrationOnboardingHandler(service, token)
 	router := gin.New()
-	handler.RegisterRoutes(router)
+	admin := router.Group("/v1/admin", middleware.AdminAuth(token))
+	NewIntegrationOnboardingHandler(service).RegisterAdminRoutes(admin)
 	return router
 }
 

@@ -11,17 +11,11 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 
+	errs "github.com/mtariq99/dispatchai/internal/errors"
 	"github.com/mtariq99/dispatchai/internal/idempotency"
 	assistant "github.com/mtariq99/dispatchai/internal/orchestration"
 	"github.com/mtariq99/dispatchai/internal/run"
 	"github.com/mtariq99/dispatchai/models"
-)
-
-const (
-	runErrorCodeCreateFailed = "RUN_CREATION_FAILED"
-	runErrorCodeStartFailed  = "RUN_START_FAILED"
-	runErrorCodeAssistant    = "ASSISTANT_EXECUTION_FAILED"
-	runErrorCodeComplete     = "RUN_COMPLETION_FAILED"
 )
 
 type Handler struct {
@@ -250,7 +244,7 @@ func (h *Handler) Chat(c *gin.Context) {
 		return
 	}
 	if err := h.runService.Start(ctx, runRecord, time.Now().UTC()); err != nil {
-		runRecord.ErrorCode = runErrorCodeStartFailed
+		runRecord.ErrorCode = errs.RunErrorCodeStartFailed
 		runRecord.ErrorMessage = err.Error()
 
 		if failErr := h.runService.Fail(ctx, runRecord, time.Now().UTC()); failErr != nil {
@@ -303,7 +297,7 @@ func (h *Handler) Chat(c *gin.Context) {
 
 	answer, err := h.assistant.HandleRequest(ctx, req.Message, execCtx)
 	if err != nil {
-		runRecord.ErrorCode = runErrorCodeAssistant
+		runRecord.ErrorCode = errs.RunErrorCodeAssistant
 		runRecord.ErrorMessage = err.Error()
 		failErr := h.runService.Fail(ctx, runRecord, time.Now().UTC())
 		failedResponse := &models.ChatResponse{
@@ -335,7 +329,7 @@ func (h *Handler) Chat(c *gin.Context) {
 	// Persist the final answer atomically with the completed run status.
 	runRecord.Answer = answer
 	if err := h.runService.Complete(ctx, runRecord, time.Now().UTC()); err != nil {
-		runRecord.ErrorCode = runErrorCodeComplete
+		runRecord.ErrorCode = errs.RunErrorCodeComplete
 		runRecord.ErrorMessage = err.Error()
 
 		// Important:

@@ -6,6 +6,7 @@ import (
 
 	"github.com/google/uuid"
 
+	errs "github.com/mtariq99/dispatchai/internal/errors"
 	"github.com/mtariq99/dispatchai/internal/idempotency"
 	"github.com/mtariq99/dispatchai/internal/policy"
 	"github.com/mtariq99/dispatchai/internal/project"
@@ -133,7 +134,7 @@ func (e *Executer) Execute(ctx context.Context, call *models.Call, excCtx *model
 
 	reserved, err := e.IdempotentStore.Reserve(ctx, excCtx.RunID, call.ID, call.Name, call.Arguments)
 	if err != nil {
-		if errors.Is(err, idempotency.ErrToolCallConflict) {
+		if errors.Is(err, errs.ErrToolCallConflict) {
 			return &models.Result{
 				CallID:  call.ID,
 				Success: false,

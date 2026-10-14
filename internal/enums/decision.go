@@ -7,3 +7,11 @@ const (
 	Deny            Outcome = "DENY"
 	RequireApproval Outcome = "REQUIRE_APPROVAL"
 )
+
+type Status string
+
+const (
+	StatusPending   Status = "pending"
+	StatusActive    Status = "active"
+	StatusSuspended Status = "suspended"
+)

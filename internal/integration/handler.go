@@ -1,52 +1,31 @@
 package integration
 
 import (
-	"crypto/subtle"
 	"encoding/json"
 	"errors"
 	"io"
 	"net/http"
-	"strings"
 
 	"github.com/gin-gonic/gin"
 	errs "github.com/mtariq99/dispatchai/internal/errors"
 	"github.com/mtariq99/dispatchai/models"
 )
 
-const (
-	maxOnboardingBodyBytes = 1 << 20 // 1 MiB
-	// The real payload is under 200 bytes; this endpoint is unauthenticated.
-	maxEnrollmentBodyBytes = 64 << 10 // 64 KiB
-)
-
 type IntegrationOnboardingHandler struct {
-	service    *OnboardingService
-	adminToken string
+	service *OnboardingService
 }
 
-func NewIntegrationOnboardingHandler(service *OnboardingService, adminToken string) *IntegrationOnboardingHandler {
-	return &IntegrationOnboardingHandler{
-		service:    service,
-		adminToken: strings.TrimSpace(adminToken),
-	}
+func NewIntegrationOnboardingHandler(service *OnboardingService) *IntegrationOnboardingHandler {
+	return &IntegrationOnboardingHandler{service: service}
 }
 
 func (h *IntegrationOnboardingHandler) Create(c *gin.Context) {
-	if h == nil || h.service == nil || h.adminToken == "" {
+	if h == nil || h.service == nil {
 		c.AbortWithStatusJSON(http.StatusServiceUnavailable, gin.H{
 			"error": "integration onboarding is not configured",
 		})
 		return
 	}
-
-	if !h.authorized(c.GetHeader("Authorization")) {
-		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
-			"error": "valid onboarding credentials are required",
-		})
-		return
-	}
-
-	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, maxOnboardingBodyBytes)
 
 	decoder := json.NewDecoder(c.Request.Body)
 	decoder.DisallowUnknownFields()
@@ -85,21 +64,6 @@ func (h *IntegrationOnboardingHandler) Create(c *gin.Context) {
 	c.JSON(http.StatusCreated, response)
 }
 
-func (h *IntegrationOnboardingHandler) authorized(header string) bool {
-	parts := strings.Fields(header)
-	if len(parts) != 2 ||
-		!strings.EqualFold(parts[0], "Bearer") || parts[1] == "" {
-		return false
-	}
-
-	provided := parts[1]
-	if len(provided) != len(h.adminToken) {
-		return false
-	}
-
-	return subtle.ConstantTimeCompare([]byte(provided), []byte(h.adminToken)) == 1
-}
-
 func (h *IntegrationOnboardingHandler) Enroll(c *gin.Context) {
 	if h == nil || h.service == nil {
 		c.AbortWithStatusJSON(http.StatusServiceUnavailable, gin.H{
@@ -108,7 +72,7 @@ func (h *IntegrationOnboardingHandler) Enroll(c *gin.Context) {
 		return
 	}
 	c.Header("Cache-Control", "no-store")
-	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, maxEnrollmentBodyBytes)
+
 	decoder := json.NewDecoder(c.Request.Body)
 	decoder.DisallowUnknownFields()
 	var request models.EnrollIntegrationRequest
@@ -148,4 +112,37 @@ func (h *IntegrationOnboardingHandler) Enroll(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusCreated, response)
+}
+
+func (h *IntegrationOnboardingHandler) ToggleIntegration(c *gin.Context) {
+	if h == nil || h.service == nil {
+		c.AbortWithStatusJSON(http.StatusServiceUnavailable, gin.H{
+			"error": "integration onboarding is not configured",
+		})
+		return
+	}
+	clientID := c.Param("client_id")
+	if clientID == "" {
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
+			"error": "client ID is required",
+		})
+		return
+	}
+	var req *models.ToggleIntegrationReq
+	if err := c.ShouldBindJSON(req); err != nil {
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
+			"error": "invalid request",
+		})
+		return
+	}
+
+	resp, err := h.service.ToggleIntegration(c.Request.Context(), clientID, req)
+	if err != nil {
+		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{
+			"error": err,
+		})
+		return
+	}
+
+	c.JSON(http.StatusCreated, resp)
 }

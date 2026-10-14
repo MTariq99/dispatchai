@@ -39,13 +39,10 @@ type TraceContext struct {
 type ToolResponse struct {
 	RequestID string
 	CallID    string
-
-	Success bool
-	Data    json.RawMessage
-
-	Error *ToolError
-
-	Metadata ResponseMetadata
+	Success   bool
+	Data      json.RawMessage
+	Error     *ToolError
+	Metadata  ResponseMetadata
 }
 
 type ToolError struct {

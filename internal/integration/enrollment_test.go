@@ -16,6 +16,7 @@ import (
 	"testing"
 
 	"github.com/gin-gonic/gin"
+	"github.com/mtariq99/dispatchai/internal/enums"
 	errs "github.com/mtariq99/dispatchai/internal/errors"
 	"github.com/mtariq99/dispatchai/models"
 )
@@ -33,6 +34,14 @@ func (s *fakeEnrollmentStore) EnrollKey(_ context.Context, p models.EnrollKeyPar
 	return &models.EnrolledKey{IntegrationID: "integration-id", ClientID: "cli_test_client", KeyID: p.KeyID}, nil
 }
 
+func (s *fakePendingIntegrationStore) GetHostIntegrationByClientID(_ context.Context, clientID string) (*models.HostIntegration, error) {
+	return nil, nil
+}
+
+func (s *fakePendingIntegrationStore) UpateHostIntegrationStatus(_ context.Context, _ string, _ string) error {
+	return nil
+}
+
 func newEnrollRouter(t *testing.T, enrollment EnrollmentStore) *gin.Engine {
 	t.Helper()
 	gin.SetMode(gin.TestMode)
@@ -41,7 +50,7 @@ func newEnrollRouter(t *testing.T, enrollment EnrollmentStore) *gin.Engine {
 		t.Fatalf("create service: %v", err)
 	}
 	router := gin.New()
-	NewIntegrationOnboardingHandler(service, "").RegisterRoutes(router) // empty admin token: enrollment must still work
+	NewIntegrationOnboardingHandler(service).RegisterPublicRoutes(router)
 	return router
 }
 
@@ -133,7 +142,7 @@ func TestEnrollRejectsInvalidRequestsWithoutCallingStore(t *testing.T) {
 		{"too short key", enrollJSON(t, token, "k1", base64.StdEncoding.EncodeToString([]byte{4}))},
 		{"compressed key", enrollJSON(t, token, "k1", base64.StdEncoding.EncodeToString(compressed))},
 		{"off-curve key", enrollJSON(t, token, "k1", base64.StdEncoding.EncodeToString(offCurve))},
-		{"body over limit", enrollJSON(t, token, strings.Repeat("a", maxEnrollmentBodyBytes+1), pubB64)},
+		{"body over limit", enrollJSON(t, token, strings.Repeat("a", enums.MaxEnrollmentBodyBytes+1), pubB64)},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

@@ -6,11 +6,6 @@ import (
 	"github.com/mtariq99/dispatchai/models"
 )
 
-// StaticTool is a minimal Tool whose only job is to describe a
-// capability so it can be Registered. Its Execute method is
-// intentionally unused in the real flow — Executor delegates actual
-// execution to the ToolGateway (which talks to the Host Project),
-// not to this method. It exists purely to satisfy the Tool interface.
 type StaticTool struct {
 	definition models.Definition
 }

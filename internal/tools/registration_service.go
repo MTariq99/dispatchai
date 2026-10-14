@@ -6,13 +6,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"regexp"
 	"strings"
 
+	"github.com/mtariq99/dispatchai/internal/enums"
 	"github.com/mtariq99/dispatchai/models"
 )
-
-var toolNamePattern = regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9_-]{0,63}$`)
 
 type RegistrationService struct {
 	repo Repository
@@ -61,7 +59,7 @@ func validateRegistrationInput(integrationID string, definition *models.Definiti
 
 func validateDefinition(definition *models.Definition) error {
 	name := strings.TrimSpace(definition.Name)
-	if !toolNamePattern.MatchString(name) {
+	if !enums.ToolNamePattern.MatchString(name) {
 		return errors.New(
 			"tool name must start with a letter and contain only letters, digits, underscores, or hyphens (maximum 64 characters)",
 		)

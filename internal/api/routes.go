@@ -5,6 +5,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/mtariq99/dispatchai/internal/integration"
+	"github.com/mtariq99/dispatchai/internal/middleware"
 	"github.com/mtariq99/dispatchai/internal/tools"
 	"github.com/mtariq99/dispatchai/models"
 )
@@ -28,10 +29,13 @@ func NewAssistantHandler(cfg *models.Config, handler *Handler, trh *tools.ToolRe
 	}, nil
 }
 
-func (ah *AssistantHandler) RegisterRoutes(r *gin.Engine, authenticator IntegrationAuthenticator) {
+func (ah *AssistantHandler) RegisterRoutes(r *gin.Engine, authenticator middleware.IntegrationAuthenticator, adminToken string) {
 	r.POST("/v1/assistant/chat", ah.handler.Chat)
 
-	toolRoutes := r.Group("/v1/integrations/tools", IntegrationAuthMiddleware(authenticator))
+	toolRoutes := r.Group("/v1/integrations/tools", middleware.IntegrationAuth(authenticator))
 	ah.ToolRegistryHandler.RegisterRoutes(toolRoutes)
-	ah.OnboardingHandler.RegisterRoutes(r)
+
+	adminRoutes := r.Group("/v1/admin", middleware.AdminAuth(adminToken))
+	ah.OnboardingHandler.RegisterAdminRoutes(adminRoutes)
+	ah.OnboardingHandler.RegisterPublicRoutes(r)
 }

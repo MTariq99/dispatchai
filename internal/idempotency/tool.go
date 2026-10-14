@@ -8,11 +8,8 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
+	errs "github.com/mtariq99/dispatchai/internal/errors"
 	"github.com/mtariq99/dispatchai/models"
-)
-
-var ErrToolCallConflict = errors.New(
-	"tool call ID reused with different tool name or arguments",
 )
 
 type ToolIdempotency interface {
@@ -118,7 +115,7 @@ func (s *ToolIdempotencyStore) Reserve(ctx context.Context, runID uuid.UUID, cal
 	}
 
 	if existingToolName != toolName || string(existingCanonical) != string(requestedCanonical) {
-		return false, ErrToolCallConflict
+		return false, errs.ErrToolCallConflict
 	}
 
 	return false, nil

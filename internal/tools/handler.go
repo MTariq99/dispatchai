@@ -29,16 +29,6 @@ func NewToolRegistryHandler(cfg *models.Config, toolRegistryService *Registratio
 	}, nil
 }
 
-type updateToolRequest struct {
-	ExpectedVersion int               `json:"expected_version"`
-	Definition      models.Definition `json:"definition"`
-}
-
-type toggleToolRequest struct {
-	ExpectedVersion int  `json:"expected_version"`
-	Enabled         bool `json:"enabled"`
-}
-
 func authenticatedIntegrationID(c *gin.Context) (string, bool) {
 	return integrationctx.Get(c)
 }
@@ -111,7 +101,7 @@ func (h *ToolRegistryHandler) UpdateToolDefinition(c *gin.Context) {
 		return
 	}
 
-	var req updateToolRequest
+	var req models.UpdateToolRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid update request"})
 		return
@@ -143,7 +133,7 @@ func (h *ToolRegistryHandler) ToggleTool(c *gin.Context) {
 		return
 	}
 
-	var req toggleToolRequest
+	var req models.ToggleToolRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid status request"})
 		return

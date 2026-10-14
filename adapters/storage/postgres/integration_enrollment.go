@@ -13,6 +13,7 @@ import (
 	"github.com/mtariq99/dispatchai/internal/enums"
 	errs "github.com/mtariq99/dispatchai/internal/errors"
 	"github.com/mtariq99/dispatchai/internal/integration"
+	"github.com/mtariq99/dispatchai/internal/utils"
 	"github.com/mtariq99/dispatchai/models"
 )
 
@@ -38,7 +39,7 @@ func (s *IntegrationEnrollmentStore) EnrollKey(ctx context.Context, p models.Enr
 	if len(p.TokenHash) != sha256.Size {
 		return nil, errs.ErrInvalidEnrollmentRequest
 	}
-	if err := integration.ValidateKeyID(p.KeyID); err != nil {
+	if err := utils.ValidateKeyID(p.KeyID); err != nil {
 		return nil, err
 	}
 	if _, err := authn.ParseP256PublicKey(p.PublicKey); err != nil {

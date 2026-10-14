@@ -5,26 +5,24 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"regexp"
 	"strings"
 	"time"
 	"unicode/utf8"
 
 	"github.com/mtariq99/dispatchai/internal/authn"
+	"github.com/mtariq99/dispatchai/internal/enums"
 	errs "github.com/mtariq99/dispatchai/internal/errors"
+	"github.com/mtariq99/dispatchai/internal/utils"
 	"github.com/mtariq99/dispatchai/models"
 )
 
-const enrollmentTokenTTL = 15 * time.Minute
-
-var enrollmentTokenPattern = regexp.MustCompile(`^[A-Za-z0-9_-]{43}$`)
-
 type PendingIntegrationStore interface {
 	CreatePendingIntegration(ctx context.Context, clientID string, displayName string, metadata []byte, enrollmentTokenHash []byte, enrollmentTokenExpiresAt time.Time) error
+	GetHostIntegrationByClientID(ctx context.Context, clientID string) (*models.HostIntegration, error)
+	UpateHostIntegrationStatus(ctx context.Context, clienID string, status string) error
 }
 
 type EnrollmentStore interface {
@@ -67,7 +65,7 @@ func (s *OnboardingService) CreatePending(ctx context.Context, request models.Cr
 		return models.CreateIntegrationResponse{}, errs.ErrInvalidOnboardingRequest
 	}
 
-	clientID, err := generateClientID()
+	clientID, err := utils.GenerateClientID()
 	if err != nil {
 		return models.CreateIntegrationResponse{},
 			fmt.Errorf("generate integration client ID: %w", err)
@@ -81,7 +79,7 @@ func (s *OnboardingService) CreatePending(ctx context.Context, request models.Cr
 
 	enrollmentToken := base64.RawURLEncoding.EncodeToString(rawToken)
 	tokenHash := sha256.Sum256([]byte(enrollmentToken))
-	expiresAt := time.Now().UTC().Add(enrollmentTokenTTL)
+	expiresAt := time.Now().UTC().Add(enums.EnrollmentTokenTTL)
 
 	if err := s.store.CreatePendingIntegration(ctx, clientID, displayName, metadataJSON, tokenHash[:], expiresAt); err != nil {
 		return models.CreateIntegrationResponse{},
@@ -96,24 +94,6 @@ func (s *OnboardingService) CreatePending(ctx context.Context, request models.Cr
 	}, nil
 }
 
-func generateClientID() (string, error) {
-	randomBytes := make([]byte, 32)
-	if _, err := rand.Read(randomBytes); err != nil {
-		return "", err
-	}
-
-	return "cli_" + hex.EncodeToString(randomBytes), nil
-}
-
-var keyIDPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$`)
-
-func ValidateKeyID(keyID string) error {
-	if !keyIDPattern.MatchString(keyID) {
-		return errs.ErrInvalidEnrollmentRequest
-	}
-	return nil
-}
-
 func (s *OnboardingService) Enroll(ctx context.Context, req *models.EnrollIntegrationRequest) (*models.EnrollIntegrationResponse, error) {
 	if s == nil || s.enrollment == nil {
 		return nil, errors.New("integration enrollment service is not configured")
@@ -121,10 +101,10 @@ func (s *OnboardingService) Enroll(ctx context.Context, req *models.EnrollIntegr
 	if req == nil {
 		return nil, errs.ErrInvalidEnrollmentRequest
 	}
-	if !enrollmentTokenPattern.MatchString(req.EnrollmentToken) {
+	if !enums.EnrollmentTokenPattern.MatchString(req.EnrollmentToken) {
 		return nil, errs.ErrInvalidEnrollmentRequest
 	}
-	if err := ValidateKeyID(req.KeyID); err != nil {
+	if err := utils.ValidateKeyID(req.KeyID); err != nil {
 		return nil, err
 	}
 	publicKey, err := base64.StdEncoding.Strict().DecodeString(req.PublicKey)
@@ -152,4 +132,27 @@ func (s *OnboardingService) Enroll(ctx context.Context, req *models.EnrollIntegr
 		KeyID:    enrolled.KeyID,
 		Status:   "pending",
 	}, nil
+}
+
+func (s *OnboardingService) ToggleIntegration(ctx context.Context, clientID string, req *models.ToggleIntegrationReq) (*string, error) {
+	if clientID == "" {
+		return nil, errors.New("Client ID is required")
+	}
+	if req.Status == "" {
+		return nil, errors.New("status cannot be empty")
+	}
+
+	hostIntegration, err := s.store.GetHostIntegrationByClientID(ctx, clientID)
+	if err != nil {
+		return nil, errors.New("host integration not found")
+	}
+	if err := utils.ValidateStatusTransition(enums.Status(hostIntegration.Status), enums.Status(req.Status)); err != nil {
+		return nil, err
+	}
+
+	if err := s.store.UpateHostIntegrationStatus(ctx, clientID, req.Status); err != nil {
+		return nil, err
+	}
+	msg := fmt.Sprintf("Host Integration Status Updated Successfully to %v", req.Status)
+	return &msg, nil
 }

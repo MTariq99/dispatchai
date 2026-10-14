@@ -7,23 +7,6 @@ import (
 	"github.com/mtariq99/dispatchai/models"
 )
 
-// This file maintains the set of tool definitions available to the
-// Assistant for a request or Host Project.
-//
-// This registry is NOT a registry of business implementations owned by
-// DispatchAI.
-//
-// The Host Project provides the available capabilities.
-//
-// DispatchAI stores those definitions so they can be:
-//
-//   - validated
-//   - looked up
-//   - supplied to the LLM
-//   - checked when the LLM returns a tool call
-//
-// The actual execution still happens inside the Host Project.
-
 type Registry struct {
 	mu    sync.RWMutex
 	tools map[string]Tool
@@ -62,10 +45,6 @@ func (r *Registry) Get(name string) (Tool, bool) {
 	return tool, exists
 }
 
-// Definitions returns the definitions of all registered tools.
-//
-// These definitions are later translated into the provider-specific tool
-// format by the LLM adapter.
 func (r *Registry) Definitions() []models.Definition {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
@@ -79,7 +58,6 @@ func (r *Registry) Definitions() []models.Definition {
 	return definitions
 }
 
-// Has reports whether a tool is registered.
 func (r *Registry) Has(name string) bool {
 	r.mu.RLock()
 	defer r.mu.RUnlock()

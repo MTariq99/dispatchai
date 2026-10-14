@@ -1,6 +1,8 @@
 package models
 
-import "encoding/json"
+import (
+	"encoding/json"
+)
 
 type Call struct {
 	ID                string
@@ -35,4 +37,14 @@ type Error struct {
 	Message string
 
 	Retryable bool
+}
+
+type UpdateToolRequest struct {
+	ExpectedVersion int        `json:"expected_version"`
+	Definition      Definition `json:"definition"`
+}
+
+type ToggleToolRequest struct {
+	ExpectedVersion int  `json:"expected_version"`
+	Enabled         bool `json:"enabled"`
 }
