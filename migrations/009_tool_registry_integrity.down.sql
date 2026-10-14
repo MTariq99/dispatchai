@@ -1,0 +1,9 @@
+-- migrations/009_tool_registry_integrity.down.sql
+ALTER TABLE tool_registration_idempotency
+DROP CONSTRAINT IF EXISTS fk_tool_registration_same_integration;
+
+ALTER TABLE tool_registration_idempotency
+DROP CONSTRAINT IF EXISTS tool_registration_idempotency_hash_length;
+
+ALTER TABLE tool_definitions
+DROP CONSTRAINT IF EXISTS uq_tool_definitions_integration_id_id;

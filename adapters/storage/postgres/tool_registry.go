@@ -24,7 +24,7 @@ func NewToolRegistry(db *sql.DB) *ToolRegistry {
 	}
 }
 
-const toolColumns = `id::text,integration_id::text,name,description,input_schema,version,enabled,deleted_at,created_at,updated_at`
+const toolColumns = `id::text,integration_id::text,name,description,input_schema,version,enabled,created_at,updated_at,deleted_at`
 
 func ScanTool(row interface{ Scan(...any) error }) (*tools.DefinitionRecord, error) {
 	var record tools.DefinitionRecord
@@ -99,14 +99,14 @@ func (tr *ToolRegistry) CreateToolRegistry(ctx context.Context, integrationID st
 	FROM tool_registration_idempotency
 	WHERE integration_id = $1::uuid AND idempotency_key = $2
 	`
-	err = tx.QueryRowContext(ctx, selectQuery, integrationID, idempotencyKey).Scan(&oldHash, oldToolID)
+	err = tx.QueryRowContext(ctx, selectQuery, integrationID, idempotencyKey).Scan(&oldHash, &oldToolID)
 	if err == nil {
 		if !bytes.Equal(oldHash, requestHash) {
 			return nil, false, errs.ErrIdempotencyConflict
 		}
 		getRecordQuery := `
-			SELECT` + toolColumns + `
-			FROM tool_definations
+			SELECT ` + toolColumns + `
+			FROM tool_definitions
 			WHERE id = $1::uuid AND integration_id = $2::uuid
 	`
 		sqlRow := tx.QueryRowContext(ctx, getRecordQuery, oldToolID, integrationID)
