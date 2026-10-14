@@ -141,7 +141,7 @@ func (tr *ToolRegistry) CreateToolRegistry(ctx context.Context, integrationID st
 		INSERT INTO tool_definitions
 			(integration_id, name, description, input_schema, enabled, version)
 		VALUES ($1::uuid, $2, $3, $4::jsonb, TRUE, 1)
-		RETURNING` + toolColumns
+		RETURNING ` + toolColumns
 	sqlInsertToolRow := tx.QueryRowContext(ctx, toolInsertQuery, integrationID, defination.Name, defination.Description, schema)
 	record, err := ScanTool(sqlInsertToolRow)
 	if err != nil {
