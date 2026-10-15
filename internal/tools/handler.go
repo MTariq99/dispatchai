@@ -81,11 +81,7 @@ func (h *ToolRegistryHandler) GetTool(c *gin.Context) {
 		return
 	}
 
-	record, err := h.toolRegistry.Get(
-		c.Request.Context(),
-		integrationID,
-		c.Param("toolID"),
-	)
+	record, err := h.toolRegistry.Get(c.Request.Context(), integrationID, c.Param("toolID"))
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "tool not found"})
 		return

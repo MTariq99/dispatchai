@@ -9,6 +9,7 @@ const (
 	MaxOnboardingBodyBytes = 1 << 20  // 1 MiB
 	MaxEnrollmentBodyBytes = 64 << 10 // 64 KiB
 	EnrollmentTokenTTL     = 15 * time.Minute
+	AdminActorKey          = "admin_actor"
 )
 
 var (

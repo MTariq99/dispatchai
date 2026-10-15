@@ -7,8 +7,13 @@ import (
 )
 
 func (h *IntegrationOnboardingHandler) RegisterAdminRoutes(r gin.IRoutes) {
-	r.POST("/integrations", middleware.MaxBodyBytes(enums.MaxOnboardingBodyBytes), h.Create)
-	r.POST("/integrations/:client_id/toggle", h.ToggleIntegration)
+	body := middleware.MaxBodyBytes(enums.MaxOnboardingBodyBytes)
+
+	r.POST("/integrations", body, h.Create)
+	r.POST("/integrations/:client_id/toggle", body, h.ToggleIntegration)
+	r.GET("/integrations/:client_id/permissions", h.GetGrantedPermissions)
+	r.POST("/integrations/:client_id/permissions", body, h.UpsertGrantedPermission)
+	r.GET("/permissions", h.GetPermissions)
 }
 
 func (h *IntegrationOnboardingHandler) RegisterPublicRoutes(r gin.IRoutes) {

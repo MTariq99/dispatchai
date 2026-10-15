@@ -50,7 +50,7 @@ func newEnrollRouter(t *testing.T, enrollment EnrollmentStore) *gin.Engine {
 		t.Fatalf("create service: %v", err)
 	}
 	router := gin.New()
-	NewIntegrationOnboardingHandler(service).RegisterPublicRoutes(router)
+	NewIntegrationOnboardingHandler(service, nil).RegisterPublicRoutes(router)
 	return router
 }
 

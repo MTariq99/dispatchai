@@ -59,7 +59,7 @@ func newTestHandler(t *testing.T, store PendingIntegrationStore, token string) *
 
 	router := gin.New()
 	admin := router.Group("/v1/admin", middleware.AdminAuth(token))
-	NewIntegrationOnboardingHandler(service).RegisterAdminRoutes(admin)
+	NewIntegrationOnboardingHandler(service, nil).RegisterAdminRoutes(admin)
 	return router
 }
 

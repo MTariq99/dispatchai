@@ -7,7 +7,10 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/google/uuid"
+	"github.com/lib/pq"
 	"github.com/mtariq99/dispatchai/internal/enums"
+	errs "github.com/mtariq99/dispatchai/internal/errors"
 	"github.com/mtariq99/dispatchai/internal/utils"
 	"github.com/mtariq99/dispatchai/models"
 )
@@ -105,60 +108,219 @@ func (i *IntegrationOnboardingStore) CreatePendingIntegration(ctx context.Contex
 }
 
 func (i *IntegrationOnboardingStore) GetHostIntegrationByClientID(ctx context.Context, clientID string) (*models.HostIntegration, error) {
-	if clientID == "" {
-		return nil, errors.New("client id is required")
+	if i == nil || i.db == nil {
+		return nil, errors.New("integration database is not configured")
 	}
-	HostIntegSlctQuery := `
-	SELECT id,integration_key,display_name,status,meta_data,created_at,upated_at
-	 FROM host_integrations
-	 WHERE integration_key = $1
-	`
-	sqlRow := i.db.QueryRowContext(ctx, HostIntegSlctQuery, clientID)
-	hostIntegration, err := ScanHostIntegration(sqlRow)
-	if err != nil {
-		return nil, err
+	const q = `
+		SELECT id, integration_key, display_name, status, metadata, created_at, updated_at
+		FROM host_integrations
+		WHERE integration_key = $1`
+	rec, err := ScanHostIntegration(i.db.QueryRowContext(ctx, q, clientID))
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, errs.ErrIntegrationNotFound
 	}
-	return hostIntegration, nil
+	return rec, err
 }
 
 func (i *IntegrationOnboardingStore) UpateHostIntegrationStatus(ctx context.Context, clientID string, status string) error {
-	if clientID == "" || status == "" {
-		return errors.New("missing required fields")
+	if i == nil || i.db == nil {
+		return errors.New("integration database is not configured")
 	}
+	if clientID == "" || status == "" {
+		return errs.ErrInvalidOnboardingRequest
+	}
+
 	tx, err := i.db.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("begin transaction: %w", err)
 	}
-	defer tx.Rollback()
-	var currentStatus string
-	StatusQuery := `
-	SELECT status
-	FROM host_integrations
-	WHERE integration_key = $1
-	FOR UPDATE
-	`
-	err = tx.QueryRowContext(ctx, StatusQuery, clientID).Scan(currentStatus)
+	defer func() { _ = tx.Rollback() }()
+
+	var integrationID, current string
+	err = tx.QueryRowContext(ctx, `
+		SELECT id::text, status FROM host_integrations
+		WHERE integration_key = $1 FOR UPDATE`, clientID).Scan(&integrationID, &current)
+	if errors.Is(err, sql.ErrNoRows) {
+		return errs.ErrIntegrationNotFound
+	}
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return fmt.Errorf("integration not found: %s", clientID)
-		}
 		return fmt.Errorf("lock integration: %w", err)
 	}
-	if err := utils.ValidateStatusTransition(enums.Status(currentStatus), enums.Status(status)); err != nil {
-		return err
+
+	if err := utils.ValidateStatusTransition(enums.Status(current), enums.Status(status)); err != nil {
+		return fmt.Errorf("%w: %v", errs.ErrInvalidStatusTransition, err)
 	}
-	upateStatusQuery := `
-	UPDATE host_integrations
-	SET status = $1,
-	updated_at = NOW()
-	WHERE integration_key = $2
-	`
-	_, err = tx.ExecContext(ctx, upateStatusQuery, status, clientID)
-	if err != nil {
+
+	if status == "active" {
+		var usable bool
+		if err := tx.QueryRowContext(ctx, `
+			SELECT EXISTS (
+				SELECT 1 FROM integration_keys
+				WHERE integration_id = $1::uuid
+				  AND status = 'active' AND revoked_at IS NULL
+				  AND (expires_at IS NULL OR expires_at > NOW()))`, integrationID).Scan(&usable); err != nil {
+			return fmt.Errorf("check signing keys: %w", err)
+		}
+		if !usable {
+			return errs.ErrNoActiveKey
+		}
+	}
+
+	if _, err := tx.ExecContext(ctx, `
+		UPDATE host_integrations SET status = $1, updated_at = NOW()
+		WHERE id = $2::uuid`, status, integrationID); err != nil {
 		return fmt.Errorf("update integration status: %w", err)
 	}
 	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("commit integration status update: %w", err)
 	}
 	return nil
+}
+
+func (i *IntegrationOnboardingStore) GetHostPermissions(ctx context.Context) ([]*models.HostPermissions, error) {
+	selectQuery := `
+		SELECT permission, description
+		FROM authorization_permissions
+	`
+
+	rows, err := i.db.QueryContext(ctx, selectQuery)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	permissions := make([]*models.HostPermissions, 0)
+
+	for rows.Next() {
+		var permission models.HostPermissions
+
+		if err := rows.Scan(
+			&permission.Permission,
+			&permission.Description,
+		); err != nil {
+			return nil, err
+		}
+
+		permissions = append(permissions, &permission)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return permissions, nil
+}
+
+func (i *IntegrationOnboardingStore) GrantPermissions(ctx context.Context, clientID string, integrationID uuid.UUID, permissions []string, grantedBy string) (*models.GrantPermissions, error) {
+	if clientID == "" {
+		return nil, errors.New("client id is required")
+	}
+	if integrationID == uuid.Nil {
+		return nil, errors.New("integration id is required")
+	}
+	if grantedBy == "" {
+		return nil, errors.New("granted by is required")
+	}
+	if len(permissions) == 0 {
+		return nil, errors.New("at least one permission is required")
+	}
+
+	uniquePermissions := make([]string, 0, len(permissions))
+	seen := make(map[string]struct{}, len(permissions))
+
+	for _, permission := range permissions {
+		if permission == "" {
+			return nil, errors.New("permission cannot be empty")
+		}
+
+		if _, exists := seen[permission]; exists {
+			continue
+		}
+
+		seen[permission] = struct{}{}
+		uniquePermissions = append(uniquePermissions, permission)
+	}
+
+	tx, err := i.db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("begin grant permissions transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	var exists bool
+	SelectHostIntegrationQuery := `
+        SELECT EXISTS (
+            SELECT 1
+            FROM host_integrations
+            WHERE id = $1
+              AND integration_key = $2
+        )
+    `
+	err = tx.QueryRowContext(ctx, SelectHostIntegrationQuery, integrationID, clientID).Scan(&exists)
+	if err != nil {
+		return nil, fmt.Errorf("verify integration: %w", err)
+	}
+	if !exists {
+		return nil, errors.New("integration not found for client")
+	}
+
+	const insertQuery = `
+        INSERT INTO integration_permission_grants (
+            integration_id,
+            permission,
+            granted_by
+        )
+        VALUES ($1, $2, $3)
+        ON CONFLICT (integration_id, permission) DO NOTHING
+    `
+
+	for _, permission := range uniquePermissions {
+		if _, err := tx.ExecContext(ctx, insertQuery, integrationID, permission, grantedBy); err != nil {
+			var pqErr *pq.Error
+			if errors.As(err, &pqErr) && pqErr.Code == "23503" {
+				return nil, errs.ErrUnknownPermission
+			}
+			return nil, fmt.Errorf("grant permission %q: %w", permission, err)
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("commit permission grants: %w", err)
+	}
+
+	return &models.GrantPermissions{
+		IntegrationID: integrationID,
+		Permissions:   uniquePermissions,
+	}, nil
+}
+
+func (i *IntegrationOnboardingStore) GetGrantedPermissions(ctx context.Context, clientID string) ([]string, error) {
+	if i == nil || i.db == nil {
+		return nil, errors.New("integration database is not configured")
+	}
+	var exists bool
+	if err := i.db.QueryRowContext(ctx,
+		`SELECT EXISTS (SELECT 1 FROM host_integrations WHERE integration_key = $1)`, clientID).Scan(&exists); err != nil {
+		return nil, fmt.Errorf("check integration: %w", err)
+	}
+	if !exists {
+		return nil, errs.ErrIntegrationNotFound
+	}
+	rows, err := i.db.QueryContext(ctx, `
+		SELECT g.permission FROM integration_permission_grants g
+		JOIN host_integrations h ON h.id = g.integration_id
+		WHERE h.integration_key = $1 ORDER BY g.permission`, clientID)
+	if err != nil {
+		return nil, fmt.Errorf("list grants: %w", err)
+	}
+	defer rows.Close()
+	perms := []string{}
+	for rows.Next() {
+		var p string
+		if err := rows.Scan(&p); err != nil {
+			return nil, err
+		}
+		perms = append(perms, p)
+	}
+	return perms, rows.Err()
 }

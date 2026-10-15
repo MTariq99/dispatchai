@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"log"
-	"os"
 
 	"github.com/gin-gonic/gin"
 
@@ -19,7 +18,6 @@ import (
 	"github.com/mtariq99/dispatchai/internal/project"
 	"github.com/mtariq99/dispatchai/internal/run"
 	"github.com/mtariq99/dispatchai/internal/tools"
-	"github.com/mtariq99/dispatchai/models"
 )
 
 func main() {
@@ -58,65 +56,65 @@ func main() {
 
 	registry := tools.NewRegistry()
 
-	if err := registry.Register(tools.NewStaticTool(models.Definition{
-		Name:        "get_customers",
-		Description: "List customers for the current tenant, optionally paginated.",
-		Parameters: map[string]any{
-			"type": "object",
-			"properties": map[string]any{
-				"limit": map[string]any{
-					"type":        "integer",
-					"description": "Max number of customers to return",
-				},
-				"offset": map[string]any{
-					"type":        "integer",
-					"description": "Pagination offset",
-				},
-			},
-		},
-	})); err != nil {
-		log.Fatal(err)
-	}
+	// if err := registry.Register(tools.NewStaticTool(models.Definition{
+	// 	Name:        "get_customers",
+	// 	Description: "List customers for the current tenant, optionally paginated.",
+	// 	Parameters: map[string]any{
+	// 		"type": "object",
+	// 		"properties": map[string]any{
+	// 			"limit": map[string]any{
+	// 				"type":        "integer",
+	// 				"description": "Max number of customers to return",
+	// 			},
+	// 			"offset": map[string]any{
+	// 				"type":        "integer",
+	// 				"description": "Pagination offset",
+	// 			},
+	// 		},
+	// 	},
+	// })); err != nil {
+	// 	log.Fatal(err)
+	// }
 
-	if err := registry.Register(tools.NewStaticTool(models.Definition{
-		Name:        "find_delayed_customers",
-		Description: "Find customers whose orders have been delayed beyond a specified number of minutes.",
-		Parameters: map[string]any{
-			"type": "object",
-			"properties": map[string]any{
-				"delay_minutes": map[string]any{
-					"type":        "integer",
-					"description": "Minimum delay in minutes to filter by",
-				},
-			},
-		},
-	})); err != nil {
-		log.Fatal(err)
-	}
+	// if err := registry.Register(tools.NewStaticTool(models.Definition{
+	// 	Name:        "find_delayed_customers",
+	// 	Description: "Find customers whose orders have been delayed beyond a specified number of minutes.",
+	// 	Parameters: map[string]any{
+	// 		"type": "object",
+	// 		"properties": map[string]any{
+	// 			"delay_minutes": map[string]any{
+	// 				"type":        "integer",
+	// 				"description": "Minimum delay in minutes to filter by",
+	// 			},
+	// 		},
+	// 	},
+	// })); err != nil {
+	// 	log.Fatal(err)
+	// }
 
-	if err := registry.Register(tools.NewStaticTool(models.Definition{
-		Name:        "send_notification",
-		Description: "Send a notification message to a specific customer.",
-		Parameters: map[string]any{
-			"type": "object",
-			"properties": map[string]any{
-				"customer_id": map[string]any{
-					"type":        "string",
-					"description": "The ID of the customer to notify",
-				},
-				"message": map[string]any{
-					"type":        "string",
-					"description": "The notification message content",
-				},
-			},
-			"required": []string{
-				"customer_id",
-				"message",
-			},
-		},
-	})); err != nil {
-		log.Fatal(err)
-	}
+	// if err := registry.Register(tools.NewStaticTool(models.Definition{
+	// 	Name:        "send_notification",
+	// 	Description: "Send a notification message to a specific customer.",
+	// 	Parameters: map[string]any{
+	// 		"type": "object",
+	// 		"properties": map[string]any{
+	// 			"customer_id": map[string]any{
+	// 				"type":        "string",
+	// 				"description": "The ID of the customer to notify",
+	// 			},
+	// 			"message": map[string]any{
+	// 				"type":        "string",
+	// 				"description": "The notification message content",
+	// 			},
+	// 		},
+	// 		"required": []string{
+	// 			"customer_id",
+	// 			"message",
+	// 		},
+	// 	},
+	// })); err != nil {
+	// 	log.Fatal(err)
+	// }
 
 	policyEngine := policy.NewEngine(policy.MaxNotificationsPerRun(1))
 
@@ -149,8 +147,13 @@ func main() {
 	if err != nil {
 		log.Fatalf("integration onboarding service: %v", err)
 	}
-	onboardingHandler := integration.NewIntegrationOnboardingHandler(OnboardingService)
-	adminToken := os.Getenv("DISPATCHAI_ONBOARDING_TOKEN")
+	adminService, err := integration.NewAdminService(integrationStore) // same store instance
+	if err != nil {
+		log.Fatalf("integration admin service: %v", err)
+	}
+	onboardingHandler := integration.NewIntegrationOnboardingHandler(OnboardingService, adminService)
+	// adminToken := os.Getenv("DISPATCHAI_ONBOARDING_TOKEN")
+
 	assistantHandler, err := api.NewAssistantHandler(cfg, handler, ToolRegistryHandler, onboardingHandler)
 	if err != nil {
 		log.Fatalf("assistant handler: %v", err)
@@ -159,7 +162,7 @@ func main() {
 	router := gin.Default()
 	integrationAuthenticator := storage.NewIntegrationAuthenticator(db)
 
-	assistantHandler.RegisterRoutes(router, integrationAuthenticator, adminToken)
+	assistantHandler.RegisterRoutes(router, integrationAuthenticator, cfg.App.AdminToken)
 	fmt.Println("DispatchAI server is listening on :8989")
 
 	if err := router.Run(":8989"); err != nil {

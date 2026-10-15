@@ -21,8 +21,6 @@ import (
 
 type PendingIntegrationStore interface {
 	CreatePendingIntegration(ctx context.Context, clientID string, displayName string, metadata []byte, enrollmentTokenHash []byte, enrollmentTokenExpiresAt time.Time) error
-	GetHostIntegrationByClientID(ctx context.Context, clientID string) (*models.HostIntegration, error)
-	UpateHostIntegrationStatus(ctx context.Context, clienID string, status string) error
 }
 
 type EnrollmentStore interface {
@@ -117,12 +115,11 @@ func (s *OnboardingService) Enroll(ctx context.Context, req *models.EnrollIntegr
 	}
 
 	tokenHash := sha256.Sum256([]byte(req.EnrollmentToken))
-	enrollKeyParams := models.EnrollKeyParams{
+	enrolled, err := s.enrollment.EnrollKey(ctx, models.EnrollKeyParams{
 		TokenHash: tokenHash[:],
 		KeyID:     req.KeyID,
 		PublicKey: publicKey,
-	}
-	enrolled, err := s.enrollment.EnrollKey(ctx, enrollKeyParams)
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -132,27 +129,4 @@ func (s *OnboardingService) Enroll(ctx context.Context, req *models.EnrollIntegr
 		KeyID:    enrolled.KeyID,
 		Status:   "pending",
 	}, nil
-}
-
-func (s *OnboardingService) ToggleIntegration(ctx context.Context, clientID string, req *models.ToggleIntegrationReq) (*string, error) {
-	if clientID == "" {
-		return nil, errors.New("Client ID is required")
-	}
-	if req.Status == "" {
-		return nil, errors.New("status cannot be empty")
-	}
-
-	hostIntegration, err := s.store.GetHostIntegrationByClientID(ctx, clientID)
-	if err != nil {
-		return nil, errors.New("host integration not found")
-	}
-	if err := utils.ValidateStatusTransition(enums.Status(hostIntegration.Status), enums.Status(req.Status)); err != nil {
-		return nil, err
-	}
-
-	if err := s.store.UpateHostIntegrationStatus(ctx, clientID, req.Status); err != nil {
-		return nil, err
-	}
-	msg := fmt.Sprintf("Host Integration Status Updated Successfully to %v", req.Status)
-	return &msg, nil
 }

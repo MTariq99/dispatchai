@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/mtariq99/dispatchai/internal/enums"
 )
 
 func AdminAuth(adminToken string) gin.HandlerFunc {
@@ -29,6 +30,7 @@ func AdminAuth(adminToken string) gin.HandlerFunc {
 			return
 		}
 
+		c.Set(enums.AdminActorKey, "admin-token")
 		c.Next()
 	}
 }
