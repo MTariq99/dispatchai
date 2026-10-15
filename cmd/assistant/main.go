@@ -173,7 +173,7 @@ func main() {
 	defer stopCleanup()
 	go signedAuthStore.RunNonceCleanup(cleanupCtx, time.Minute, logger)
 
-	assistantHandler.RegisterRoutes(router, requestVerifier, cfg.App.AdminToken)
+	assistantHandler.RegisterRoutes(router, requestVerifier, cfg.App.AdminToken, integrationStore)
 	fmt.Println("DispatchAI server is listening on :8989")
 
 	if err := router.Run(":8989"); err != nil {

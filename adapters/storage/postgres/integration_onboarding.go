@@ -324,3 +324,28 @@ func (i *IntegrationOnboardingStore) GetGrantedPermissions(ctx context.Context, 
 	}
 	return perms, rows.Err()
 }
+
+func (i *IntegrationOnboardingStore) HasAccess(ctx context.Context, integrationID, permission string) (bool, error) {
+	if i == nil || i.db == nil {
+		return false, errors.New("integration permission database is not configured")
+	}
+
+	if integrationID == "" || permission == "" {
+		return false, errors.New("missing required fields")
+	}
+	query := `
+	SELECT EXISTS(
+	SELECT 1
+	FROM integration_permission_grants
+	WHERE integration_id = $1 AND permission = $2
+	)
+	`
+	var granted bool
+	if err := i.db.QueryRowContext(
+		ctx, query, integrationID, permission,
+	).Scan(&granted); err != nil {
+		return false, fmt.Errorf("check integration permission: %w", err)
+	}
+
+	return granted, nil
+}

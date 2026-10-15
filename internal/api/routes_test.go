@@ -24,7 +24,7 @@ func routerWithAdminToken(token string) *gin.Engine {
 		OnboardingHandler:   &integration.IntegrationOnboardingHandler{},
 	}
 	r := gin.New()
-	ah.RegisterRoutes(r, denyVerifier{}, token)
+	ah.RegisterRoutes(r, denyVerifier{}, token, nil)
 	return r
 }
 
