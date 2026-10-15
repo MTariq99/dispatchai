@@ -18,7 +18,8 @@ type Config struct {
 
 // AppConfig contains application-level configuration.
 type AppConfig struct {
-	Env string `mapstructure:"APP_ENV"`
+	Env        string `mapstructure:"APP_ENV"`
+	AdminToken string `mapstructure:"DISPATCHAI_ONBOARDING_TOKEN"`
 }
 
 // ServerConfig contains HTTP server configuration.

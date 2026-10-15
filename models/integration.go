@@ -58,3 +58,18 @@ type HostIntegration struct {
 	CreatedAt      time.Time       `json:"created_at,omitempty"`
 	UpdatedAt      time.Time       `json:"updated_at,omitempty"`
 }
+
+type HostPermissions struct {
+	Permission  string `json:"permission"`
+	Description string `json:"description"`
+}
+
+type GrantPermissionsReq struct {
+	Permissions []string `json:"permissions"`
+}
+
+type GrantPermissions struct {
+	IntegrationID uuid.UUID `json:"integration_id"`
+	Permissions   []string  `json:"permission"`
+	GrantedAt     time.Time `json:"granted_at"`
+}
