@@ -29,13 +29,15 @@ func NewAssistantHandler(cfg *models.Config, handler *Handler, trh *tools.ToolRe
 	}, nil
 }
 
-func (ah *AssistantHandler) RegisterRoutes(r *gin.Engine, authenticator middleware.IntegrationAuthenticator, adminToken string) {
+func (ah *AssistantHandler) RegisterRoutes(r *gin.Engine, verifier middleware.RequestVerifier, adminToken string) {
+	// Known gap: unauthenticated until the chat route gets signed auth and permission checks.
 	r.POST("/v1/assistant/chat", ah.handler.Chat)
 
-	toolRoutes := r.Group("/v1/integrations/tools", middleware.IntegrationAuth(authenticator))
+	toolRoutes := r.Group("/v1/integrations/tools", middleware.SignedRequestAuth(verifier))
 	ah.ToolRegistryHandler.RegisterRoutes(toolRoutes)
 
 	adminRoutes := r.Group("/v1/admin", middleware.AdminAuth(adminToken))
 	ah.OnboardingHandler.RegisterAdminRoutes(adminRoutes)
+
 	ah.OnboardingHandler.RegisterPublicRoutes(r)
 }

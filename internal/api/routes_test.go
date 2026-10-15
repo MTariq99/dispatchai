@@ -1,7 +1,6 @@
 package api
 
 import (
-	"context"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -13,11 +12,9 @@ import (
 	"github.com/mtariq99/dispatchai/internal/tools"
 )
 
-type denyAllAuthenticator struct{}
+type denyVerifier struct{}
 
-func (denyAllAuthenticator) AuthenticateIntegration(context.Context, string) (string, error) {
-	return "", errors.New("denied")
-}
+func (denyVerifier) Verify(*http.Request) (string, error) { return "", errors.New("denied") }
 
 func routerWithAdminToken(token string) *gin.Engine {
 	gin.SetMode(gin.TestMode)
@@ -27,7 +24,7 @@ func routerWithAdminToken(token string) *gin.Engine {
 		OnboardingHandler:   &integration.IntegrationOnboardingHandler{},
 	}
 	r := gin.New()
-	ah.RegisterRoutes(r, denyAllAuthenticator{}, token)
+	ah.RegisterRoutes(r, denyVerifier{}, token)
 	return r
 }
 

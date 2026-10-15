@@ -1,14 +1,17 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
+	"time"
 
 	"github.com/gin-gonic/gin"
 
 	"github.com/mtariq99/dispatchai/adapters/llm/gemini"
 	storage "github.com/mtariq99/dispatchai/adapters/storage/postgres"
 	"github.com/mtariq99/dispatchai/internal/api"
+	"github.com/mtariq99/dispatchai/internal/authn"
 	"github.com/mtariq99/dispatchai/internal/config"
 	"github.com/mtariq99/dispatchai/internal/conversation"
 	"github.com/mtariq99/dispatchai/internal/idempotency"
@@ -160,9 +163,17 @@ func main() {
 	}
 
 	router := gin.Default()
-	integrationAuthenticator := storage.NewIntegrationAuthenticator(db)
 
-	assistantHandler.RegisterRoutes(router, integrationAuthenticator, cfg.App.AdminToken)
+	signedAuthStore := storage.NewSignedAuthStore(db)
+	requestVerifier, err := authn.NewRequestVerifier(signedAuthStore, signedAuthStore, authn.VerifierConfig{})
+	if err != nil {
+		log.Fatalf("request verifier: %v", err)
+	}
+	cleanupCtx, stopCleanup := context.WithCancel(context.Background())
+	defer stopCleanup()
+	go signedAuthStore.RunNonceCleanup(cleanupCtx, time.Minute, logger)
+
+	assistantHandler.RegisterRoutes(router, requestVerifier, cfg.App.AdminToken)
 	fmt.Println("DispatchAI server is listening on :8989")
 
 	if err := router.Run(":8989"); err != nil {
