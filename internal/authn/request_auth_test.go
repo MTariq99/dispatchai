@@ -61,9 +61,13 @@ func newFixture(t *testing.T) (*RequestVerifier, *fakeKeys, *fakeNonces, *ecdsa.
 	if err != nil {
 		t.Fatal(err)
 	}
+	publicKeyBytes, err := priv.PublicKey.Bytes()
+	if err != nil {
+		t.Fatal(err)
+	}
 	keys := &fakeKeys{rec: &models.KeyRecord{
 		IntegrationID: "int-1",
-		PublicKey:     elliptic.Marshal(elliptic.P256(), priv.PublicKey.X, priv.PublicKey.Y),
+		PublicKey:     publicKeyBytes,
 	}}
 	nonces := &fakeNonces{seen: map[string]bool{}}
 	v, err := NewRequestVerifier(keys, nonces, VerifierConfig{})

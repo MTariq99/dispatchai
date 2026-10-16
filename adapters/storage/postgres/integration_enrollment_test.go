@@ -105,7 +105,11 @@ func newTestPublicKey(t *testing.T) []byte {
 	if err != nil {
 		t.Fatalf("generate key: %v", err)
 	}
-	return elliptic.Marshal(elliptic.P256(), priv.PublicKey.X, priv.PublicKey.Y)
+	encoded, err := priv.PublicKey.Bytes()
+	if err != nil {
+		t.Fatalf("encode public key: %v", err)
+	}
+	return encoded
 }
 
 func tokenConsumed(t *testing.T, db *sql.DB, hash []byte) bool {

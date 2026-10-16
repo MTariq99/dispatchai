@@ -85,19 +85,25 @@ func TestParseP256PublicKey(t *testing.T) {
 		t.Fatalf("GenerateKey() error = %v", err)
 	}
 
-	encoded := elliptic.Marshal(
-		elliptic.P256(),
-		privateKey.PublicKey.X,
-		privateKey.PublicKey.Y,
-	)
+	// Encode the original public key.
+	encoded, err := privateKey.PublicKey.Bytes()
+	if err != nil {
+		t.Fatalf("PublicKey.Bytes() error = %v", err)
+	}
 
+	// Parse the encoded public key.
 	parsed, err := ParseP256PublicKey(encoded)
 	if err != nil {
 		t.Fatalf("ParseP256PublicKey() error = %v", err)
 	}
 
-	if parsed.X.Cmp(privateKey.PublicKey.X) != 0 ||
-		parsed.Y.Cmp(privateKey.PublicKey.Y) != 0 {
+	// Encode the parsed key and compare it with the original.
+	parsedBytes, err := parsed.Bytes()
+	if err != nil {
+		t.Fatalf("parsed.Bytes() error = %v", err)
+	}
+
+	if string(parsedBytes) != string(encoded) {
 		t.Fatal("parsed public key does not match original key")
 	}
 }
