@@ -17,8 +17,8 @@ func NewRunService(store RunStore) *RunService {
 	}
 }
 
-func (s *RunService) Create(ctx context.Context, tenantID uuid.UUID, userID uuid.UUID, conversationID uuid.UUID, requestID uuid.UUID, now time.Time) (*Run, error) {
-	r, err := NewRun(tenantID, userID, conversationID, requestID, now)
+func (s *RunService) Create(ctx context.Context, integrationID uuid.UUID, conversationID uuid.UUID, requestID uuid.UUID, now time.Time) (*Run, error) {
+	r, err := NewRun(integrationID, conversationID, requestID, now)
 	if err != nil {
 		return nil, err
 	}

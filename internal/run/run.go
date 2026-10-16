@@ -8,17 +8,16 @@ import (
 )
 
 var (
-	ErrInvalidTenantID     = errors.New("tenant id is required")
-	ErrInvalidUserID       = errors.New("user id is required")
-	ErrInvalidConversation = errors.New("conversation id is required")
-	ErrInvalidRequestID    = errors.New("request id is required")
-	ErrInvalidTransition   = errors.New("invalid state transition")
+	ErrInvalidIntegrationID = errors.New("integration id is required")
+	ErrInvalidUserID        = errors.New("user id is required")
+	ErrInvalidConversation  = errors.New("conversation id is required")
+	ErrInvalidRequestID     = errors.New("request id is required")
+	ErrInvalidTransition    = errors.New("invalid state transition")
 )
 
 type Run struct {
 	ID             uuid.UUID
-	TenantID       uuid.UUID
-	UserID         uuid.UUID
+	IntegrationID  uuid.UUID
 	ConversationID uuid.UUID
 	RequestID      uuid.UUID
 	Status         State
@@ -36,19 +35,9 @@ type Run struct {
 	UpdatedAt      time.Time
 }
 
-func NewRun(
-	tenantID uuid.UUID,
-	userID uuid.UUID,
-	conversationID uuid.UUID,
-	requestID uuid.UUID,
-	now time.Time,
-) (*Run, error) {
-	if tenantID == uuid.Nil {
-		return nil, ErrInvalidTenantID
-	}
-
-	if userID == uuid.Nil {
-		return nil, ErrInvalidUserID
+func NewRun(integrationID uuid.UUID, conversationID uuid.UUID, requestID uuid.UUID, now time.Time) (*Run, error) {
+	if integrationID == uuid.Nil {
+		return nil, ErrInvalidIntegrationID
 	}
 
 	if conversationID == uuid.Nil {
@@ -65,8 +54,7 @@ func NewRun(
 
 	return &Run{
 		ID:             uuid.New(),
-		TenantID:       tenantID,
-		UserID:         userID,
+		IntegrationID:  integrationID,
 		ConversationID: conversationID,
 		RequestID:      requestID,
 		Status:         StateCreated,

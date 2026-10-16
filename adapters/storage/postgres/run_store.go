@@ -81,8 +81,7 @@ func (s *RunStore) Get(ctx context.Context, runID uuid.UUID) (*run.Run, error) {
 	const query = `
 		SELECT
 			cr.id,
-			c.tenant_id,
-			c.user_id,
+			c.integration_id,
 			cr.conversation_id,
 			cr.request_id,
 			cr.status,
@@ -111,8 +110,7 @@ func (s *RunStore) GetByRequestID(ctx context.Context, requestID uuid.UUID) (*ru
 	const query = `
 	SELECT
 		cr.id,
-		c.tenant_id,
-		c.user_id,
+		c.integration_id,
 		cr.conversation_id,
 		cr.request_id,
 		cr.status,
@@ -209,8 +207,7 @@ func (s *RunStore) scanRun(ctx context.Context, query string, id uuid.UUID) (*ru
 
 	err := s.db.QueryRowContext(ctx, query, id).Scan(
 		&r.ID,
-		&r.TenantID,
-		&r.UserID,
+		&r.IntegrationID,
 		&r.ConversationID,
 		&r.RequestID,
 		&r.Status,

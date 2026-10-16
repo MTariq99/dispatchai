@@ -19,7 +19,6 @@ func (denyVerifier) Verify(*http.Request) (string, error) { return "", errors.Ne
 func routerWithAdminToken(token string) *gin.Engine {
 	gin.SetMode(gin.TestMode)
 	ah := &AssistantHandler{
-		handler:             &Handler{},
 		ToolRegistryHandler: &tools.ToolRegistryHandler{},
 		OnboardingHandler:   &integration.IntegrationOnboardingHandler{},
 	}

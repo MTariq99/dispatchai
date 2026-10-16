@@ -6,7 +6,6 @@ import (
 
 	"github.com/mtariq99/dispatchai/internal/conversation"
 	"github.com/mtariq99/dispatchai/internal/llm"
-	"github.com/mtariq99/dispatchai/internal/run"
 	"github.com/mtariq99/dispatchai/internal/tools"
 	"github.com/mtariq99/dispatchai/models"
 )
@@ -49,11 +48,10 @@ import (
 type Orchestrator struct {
 	toolloop     *ToolLoop
 	systemPrompt string
-	store        conversation.Store
-	runs         *run.RunService
+	store        *conversation.ConversationService
 }
 
-func NewOrchestrator(llm llm.Client, registry *tools.Registry, executer *tools.Executer, model string, maxTokens int, temperature float64, store conversation.Store) *Orchestrator {
+func NewOrchestrator(llm llm.Client, registry *tools.Registry, executer *tools.Executer, model string, maxTokens int, temperature float64, store *conversation.ConversationService) *Orchestrator {
 	return &Orchestrator{
 		toolloop:     NewToolLoop(llm, registry, executer, model, maxTokens, temperature),
 		systemPrompt: DefaultSystemPrompt,
@@ -69,7 +67,7 @@ func (o *Orchestrator) Run(ctx context.Context, execCtx *models.ExecutionContext
 		return "", fmt.Errorf("execution context is required")
 	}
 
-	unlock, err := o.store.Lock(ctx, execCtx.ConversationID)
+	unlock, err := o.store.LockConversation(ctx, execCtx.ConversationID)
 	if err != nil {
 		return "", fmt.Errorf("lock conversation: %w", err)
 	}
@@ -80,11 +78,7 @@ func (o *Orchestrator) Run(ctx context.Context, execCtx *models.ExecutionContext
 		}
 	}()
 
-	priorMessages, err := o.store.Load(
-		execCtx.ConversationID,
-		execCtx.Tenant.TenantID,
-		execCtx.Identity.UserID,
-	)
+	priorMessages, err := o.store.LoadConversation(execCtx.ConversationID, execCtx.IntegrationID)
 	if err != nil {
 		return "", fmt.Errorf("load conversation Error : %w", err)
 	}
@@ -99,7 +93,7 @@ func (o *Orchestrator) Run(ctx context.Context, execCtx *models.ExecutionContext
 	if err != nil {
 		return "", err
 	}
-	if saveErr := o.store.Save(execCtx.ConversationID, execCtx.Tenant.TenantID, execCtx.Identity.UserID, conv.Messages); saveErr != nil {
+	if saveErr := o.store.SaveConversation(execCtx.ConversationID, execCtx.IntegrationID, conv.Messages); saveErr != nil {
 		return "", saveErr
 	}
 	return answer, nil

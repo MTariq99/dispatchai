@@ -9,66 +9,51 @@ import (
 )
 
 func TestNewRun(t *testing.T) {
-	tenantID := uuid.New()
-	userID := uuid.New()
+	integrationID := uuid.New()
 	conversationID := uuid.New()
 	requestID := uuid.New()
 	now := time.Date(2026, 10, 8, 12, 0, 0, 0, time.UTC)
 
 	tests := []struct {
-		name    string
-		tenant  uuid.UUID
-		user    uuid.UUID
-		convo   uuid.UUID
-		request uuid.UUID
-		wantErr error
+		name        string
+		integration uuid.UUID
+		convo       uuid.UUID
+		request     uuid.UUID
+		wantErr     error
 	}{
 		{
-			name:    "valid",
-			tenant:  tenantID,
-			user:    userID,
-			convo:   conversationID,
-			request: requestID,
+			name:        "valid",
+			integration: integrationID,
+			convo:       conversationID,
+			request:     requestID,
 		},
 		{
-			name:    "missing tenant",
-			tenant:  uuid.Nil,
-			user:    userID,
-			convo:   conversationID,
-			request: requestID,
-			wantErr: ErrInvalidTenantID,
+			name:        "missing integration",
+			integration: uuid.Nil,
+			convo:       conversationID,
+			request:     requestID,
+			wantErr:     ErrInvalidIntegrationID,
 		},
 		{
-			name:    "missing user",
-			tenant:  tenantID,
-			user:    uuid.Nil,
-			convo:   conversationID,
-			request: requestID,
-			wantErr: ErrInvalidUserID,
+			name:        "missing conversation",
+			integration: integrationID,
+			convo:       uuid.Nil,
+			request:     requestID,
+			wantErr:     ErrInvalidConversation,
 		},
 		{
-			name:    "missing conversation",
-			tenant:  tenantID,
-			user:    userID,
-			convo:   uuid.Nil,
-			request: requestID,
-			wantErr: ErrInvalidConversation,
-		},
-		{
-			name:    "missing request",
-			tenant:  tenantID,
-			user:    userID,
-			convo:   conversationID,
-			request: uuid.Nil,
-			wantErr: ErrInvalidRequestID,
+			name:        "missing request",
+			integration: integrationID,
+			convo:       conversationID,
+			request:     uuid.Nil,
+			wantErr:     ErrInvalidRequestID,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			r, err := NewRun(
-				tt.tenant,
-				tt.user,
+				tt.integration,
 				tt.convo,
 				tt.request,
 				now,
@@ -93,12 +78,8 @@ func TestNewRun(t *testing.T) {
 				t.Fatal("expected generated run ID")
 			}
 
-			if r.TenantID != tt.tenant {
-				t.Fatalf("tenant ID = %v, want %v", r.TenantID, tt.tenant)
-			}
-
-			if r.UserID != tt.user {
-				t.Fatalf("user ID = %v, want %v", r.UserID, tt.user)
+			if r.IntegrationID != tt.integration {
+				t.Fatalf("integration ID = %v, want %v", r.IntegrationID, tt.integration)
 			}
 
 			if r.ConversationID != tt.convo {
@@ -136,7 +117,6 @@ func TestNewRun_ZeroTimeUsesCurrentTime(t *testing.T) {
 	before := time.Now().UTC()
 
 	r, err := NewRun(
-		uuid.New(),
 		uuid.New(),
 		uuid.New(),
 		uuid.New(),

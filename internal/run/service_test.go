@@ -43,10 +43,9 @@ func TestRunServiceTransitionDoesNotMutateRunWhenUpdateFails(t *testing.T) {
 	now := time.Date(2026, 10, 9, 12, 0, 0, 0, time.UTC)
 
 	r, err := NewRun(
-		uuid.New(),
-		uuid.New(),
-		uuid.New(),
-		uuid.New(),
+		uuid.New(), // integrationID
+		uuid.New(), // conversationID
+		uuid.New(), // requestID
 		now,
 	)
 	if err != nil {
@@ -107,10 +106,9 @@ func TestRunServiceTransitionToDoesNotMutateRunWhenUpdateFails(t *testing.T) {
 	now := time.Date(2026, 10, 9, 12, 0, 0, 0, time.UTC)
 
 	r, err := NewRun(
-		uuid.New(),
-		uuid.New(),
-		uuid.New(),
-		uuid.New(),
+		uuid.New(), // integrationID
+		uuid.New(), // conversationID
+		uuid.New(), // requestID
 		now,
 	)
 	if err != nil {

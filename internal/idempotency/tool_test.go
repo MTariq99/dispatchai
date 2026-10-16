@@ -52,14 +52,34 @@ func newToolIdempotencyTestRun(t *testing.T, db *sql.DB) uuid.UUID {
 	t.Helper()
 
 	ctx := context.Background()
+	var integrationID uuid.UUID
+
+	integrationKey := "cli_test_" + uuid.NewString()
+
+	err := db.QueryRowContext(ctx, `
+		INSERT INTO host_integrations (
+			integration_key,
+			display_name,
+			status
+		)
+		VALUES ($1, $2, $3)
+		RETURNING id
+	`, integrationKey, "tool idempotency integration test", "active").
+		Scan(&integrationID)
+	if err != nil {
+		t.Fatalf("create test integration: %v", err)
+	}
+
 	conversationID := uuid.New()
 	runID := uuid.New()
 
-	_, err := db.ExecContext(ctx, `
-		INSERT INTO conversations (id, tenant_id, user_id, title)
-		VALUES ($1, $2, $3, $4)
-	`, conversationID, uuid.New(), uuid.New(), "tool idempotency integration test")
+	_, err = db.ExecContext(ctx, `
+		INSERT INTO conversations (id, integration_id, title)
+		VALUES ($1, $2, $3)
+	`, conversationID, integrationID, "tool idempotency integration test")
 	if err != nil {
+		_, _ = db.ExecContext(ctx,
+			`DELETE FROM host_integrations WHERE id = $1`, integrationID)
 		t.Fatalf("create test conversation: %v", err)
 	}
 
@@ -70,14 +90,24 @@ func newToolIdempotencyTestRun(t *testing.T, db *sql.DB) uuid.UUID {
 	if err != nil {
 		_, _ = db.ExecContext(ctx,
 			`DELETE FROM conversations WHERE id = $1`, conversationID)
+		_, _ = db.ExecContext(ctx,
+			`DELETE FROM host_integrations WHERE id = $1`, integrationID)
 		t.Fatalf("create test run: %v", err)
 	}
 
 	t.Cleanup(func() {
+		// Deleting the conversation cascades to its runs and tool executions.
 		_, err := db.ExecContext(context.Background(),
 			`DELETE FROM conversations WHERE id = $1`, conversationID)
 		if err != nil {
 			t.Errorf("delete test conversation %s: %v", conversationID, err)
+			return
+		}
+
+		_, err = db.ExecContext(context.Background(),
+			`DELETE FROM host_integrations WHERE id = $1`, integrationID)
+		if err != nil {
+			t.Errorf("delete test integration %s: %v", integrationID, err)
 		}
 	})
 

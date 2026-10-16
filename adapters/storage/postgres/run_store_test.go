@@ -37,8 +37,32 @@ func TestRunStoreIntegration(t *testing.T) {
 
 	store := NewRunStore(db)
 
-	tenantID := uuid.New()
-	userID := uuid.New()
+	var integrationID uuid.UUID
+
+	integrationKey := "cli_test_" + uuid.NewString()
+
+	err = db.QueryRowContext(ctx, `
+    INSERT INTO host_integrations (
+        integration_key,
+        display_name,
+        status
+    )
+    VALUES ($1, $2, $3)
+    RETURNING id
+`, integrationKey, "run store integration test", "active").
+		Scan(&integrationID)
+	if err != nil {
+		t.Fatalf("create test integration: %v", err)
+	}
+
+	t.Cleanup(func() {
+		_, _ = db.ExecContext(
+			context.Background(),
+			`DELETE FROM host_integrations WHERE id = $1`,
+			integrationID,
+		)
+	})
+
 	conversationID := uuid.New()
 	requestID := uuid.New()
 	runID := uuid.New()
@@ -59,18 +83,16 @@ func TestRunStoreIntegration(t *testing.T) {
 		`
 		INSERT INTO conversations (
 			id,
-			tenant_id,
-			user_id,
+			integration_id,
 			title,
 			status,
 			created_at,
 			updated_at
 		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7)
+		VALUES ($1, $2, $3, $4, $5, $6)
 		`,
 		conversationID,
-		tenantID,
-		userID,
+		integrationID,
 		"RunStore integration test",
 		"active",
 		now,
@@ -90,8 +112,7 @@ func TestRunStoreIntegration(t *testing.T) {
 
 	r := &run.Run{
 		ID:             runID,
-		TenantID:       tenantID,
-		UserID:         userID,
+		IntegrationID:  integrationID,
 		ConversationID: conversationID,
 		RequestID:      requestID,
 		Status:         run.StateCreated,
@@ -178,12 +199,8 @@ func assertRunEqual(t *testing.T, want, got *run.Run) {
 		t.Errorf("ID: want %s, got %s", want.ID, got.ID)
 	}
 
-	if want.TenantID != got.TenantID {
-		t.Errorf("TenantID: want %s, got %s", want.TenantID, got.TenantID)
-	}
-
-	if want.UserID != got.UserID {
-		t.Errorf("UserID: want %s, got %s", want.UserID, got.UserID)
+	if want.IntegrationID != got.IntegrationID {
+		t.Errorf("Integration: want %s, got %s", want.IntegrationID, got.IntegrationID)
 	}
 
 	if want.ConversationID != got.ConversationID {

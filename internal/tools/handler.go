@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
-	"github.com/mtariq99/dispatchai/internal/integrationctx"
+	"github.com/mtariq99/dispatchai/internal/utils"
 	"github.com/mtariq99/dispatchai/models"
 )
 
@@ -29,12 +29,8 @@ func NewToolRegistryHandler(cfg *models.Config, toolRegistryService *Registratio
 	}, nil
 }
 
-func authenticatedIntegrationID(c *gin.Context) (string, bool) {
-	return integrationctx.Get(c)
-}
-
 func (h *ToolRegistryHandler) RegisterTool(c *gin.Context) {
-	integrationID, ok := authenticatedIntegrationID(c)
+	integrationID, ok := utils.AuthenticatedIntegrationID(c)
 	if !ok {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "integration authentication required"})
 		return
@@ -75,7 +71,7 @@ func (h *ToolRegistryHandler) RegisterTool(c *gin.Context) {
 }
 
 func (h *ToolRegistryHandler) GetTool(c *gin.Context) {
-	integrationID, ok := authenticatedIntegrationID(c)
+	integrationID, ok := utils.AuthenticatedIntegrationID(c)
 	if !ok {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "integration authentication required"})
 		return
@@ -91,7 +87,7 @@ func (h *ToolRegistryHandler) GetTool(c *gin.Context) {
 }
 
 func (h *ToolRegistryHandler) UpdateToolDefinition(c *gin.Context) {
-	integrationID, ok := authenticatedIntegrationID(c)
+	integrationID, ok := utils.AuthenticatedIntegrationID(c)
 	if !ok {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "integration authentication required"})
 		return
@@ -123,7 +119,7 @@ func (h *ToolRegistryHandler) UpdateToolDefinition(c *gin.Context) {
 }
 
 func (h *ToolRegistryHandler) ToggleTool(c *gin.Context) {
-	integrationID, ok := authenticatedIntegrationID(c)
+	integrationID, ok := utils.AuthenticatedIntegrationID(c)
 	if !ok {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "integration authentication required"})
 		return
@@ -155,7 +151,7 @@ func (h *ToolRegistryHandler) ToggleTool(c *gin.Context) {
 }
 
 func (h *ToolRegistryHandler) DeleteTool(c *gin.Context) {
-	integrationID, ok := authenticatedIntegrationID(c)
+	integrationID, ok := utils.AuthenticatedIntegrationID(c)
 	if !ok {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "integration authentication required"})
 		return

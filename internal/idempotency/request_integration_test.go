@@ -1,4 +1,4 @@
-package idempotency
+package idempotency_test
 
 import (
 	"context"
@@ -10,6 +10,7 @@ import (
 	_ "github.com/lib/pq"
 
 	"github.com/google/uuid"
+	postgresstore "github.com/mtariq99/dispatchai/adapters/storage/postgres"
 )
 
 func TestRequestIdempotencyStoreIntegration(t *testing.T) {
@@ -33,9 +34,33 @@ func TestRequestIdempotencyStoreIntegration(t *testing.T) {
 		t.Fatalf("ping database: %v", err)
 	}
 
-	store := NewIdempotencyStore(db)
+	store := postgresstore.NewIdempotencyStore(db)
+	var integrationID uuid.UUID
 
-	tenantID := uuid.New()
+	integrationKey := "cli_test_" + uuid.NewString()
+
+	err = db.QueryRowContext(ctx, `
+    INSERT INTO host_integrations (
+        integration_key,
+        display_name,
+        status
+    )
+    VALUES ($1, $2, $3)
+    RETURNING id
+`, integrationKey, "request idempotency integration test", "active").
+		Scan(&integrationID)
+	if err != nil {
+		t.Fatalf("create test integration: %v", err)
+	}
+
+	t.Cleanup(func() {
+		_, _ = db.ExecContext(
+			context.Background(),
+			`DELETE FROM host_integrations WHERE id = $1`,
+			integrationID,
+		)
+	})
+
 	key := "request-fingerprint-" + uuid.NewString()
 	conversationID := uuid.New()
 	requestID := uuid.New()
@@ -43,8 +68,8 @@ func TestRequestIdempotencyStoreIntegration(t *testing.T) {
 	t.Cleanup(func() {
 		_, _ = db.ExecContext(
 			context.Background(),
-			`DELETE FROM idempotency_keys WHERE tenant_id = $1 AND key = $2`,
-			tenantID,
+			`DELETE FROM idempotency_keys WHERE integration_id = $1 AND key = $2`,
+			integrationID,
 			key,
 		)
 	})
@@ -52,7 +77,7 @@ func TestRequestIdempotencyStoreIntegration(t *testing.T) {
 	// First request: reserve the key with its fingerprint.
 	reserved, err := store.Reserve(
 		ctx,
-		tenantID,
+		integrationID,
 		key,
 		conversationID,
 		requestID,
@@ -66,7 +91,7 @@ func TestRequestIdempotencyStoreIntegration(t *testing.T) {
 	}
 
 	// Verify that the fingerprint was persisted and can be read back.
-	state, found, err := store.GetState(ctx, tenantID, key)
+	state, found, err := store.GetState(ctx, integrationID, key)
 	if err != nil {
 		t.Fatalf("get initial request state: %v", err)
 	}
@@ -87,7 +112,7 @@ func TestRequestIdempotencyStoreIntegration(t *testing.T) {
 	// Second request: reuse the same key with a different fingerprint.
 	reserved, err = store.Reserve(
 		ctx,
-		tenantID,
+		integrationID,
 		key,
 		uuid.New(),
 		uuid.New(),
@@ -101,7 +126,7 @@ func TestRequestIdempotencyStoreIntegration(t *testing.T) {
 	}
 
 	// Verify that the original request and fingerprint remain unchanged.
-	state, found, err = store.GetState(ctx, tenantID, key)
+	state, found, err = store.GetState(ctx, integrationID, key)
 	if err != nil {
 		t.Fatalf("get request state after duplicate: %v", err)
 	}

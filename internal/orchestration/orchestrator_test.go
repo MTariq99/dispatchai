@@ -12,6 +12,8 @@ import (
 )
 
 type lockTestStore struct {
+	conversation.Store
+
 	messages []*models.Message
 
 	lockCalls   int
@@ -37,7 +39,7 @@ func (s *lockTestStore) Lock(_ context.Context, _ uuid.UUID) (func() error, erro
 	}, nil
 }
 
-func (s *lockTestStore) Load(_, _, _ uuid.UUID) ([]*models.Message, error) {
+func (s *lockTestStore) Load(conversationID uuid.UUID, integrationID uuid.UUID) ([]*models.Message, error) {
 	s.loadCalls++
 	if s.loadErr != nil {
 		return nil, s.loadErr
@@ -45,7 +47,7 @@ func (s *lockTestStore) Load(_, _, _ uuid.UUID) ([]*models.Message, error) {
 	return s.messages, nil
 }
 
-func (s *lockTestStore) Save(_, _, _ uuid.UUID, messages []*models.Message) error {
+func (s *lockTestStore) Save(conversationID uuid.UUID, integrationID uuid.UUID, messages []*models.Message) error {
 	s.saveCalls++
 	if s.saveErr != nil {
 		return s.saveErr
@@ -57,9 +59,16 @@ func (s *lockTestStore) Save(_, _, _ uuid.UUID, messages []*models.Message) erro
 var _ conversation.Store = (*lockTestStore)(nil)
 
 func newLockTestOrchestrator(
+	t *testing.T,
 	llmClient *testLLM,
 	store *lockTestStore,
 ) *Orchestrator {
+	t.Helper()
+	conversationService, err := conversation.NewConversationService(store)
+	if err != nil {
+		t.Fatalf("NewConversationService() error = %v", err)
+	}
+
 	return NewOrchestrator(
 		llmClient,
 		tools.NewRegistry(),
@@ -67,7 +76,7 @@ func newLockTestOrchestrator(
 		"test-model",
 		1000,
 		0,
-		store,
+		conversationService,
 	)
 }
 
@@ -88,7 +97,7 @@ func TestOrchestratorReleasesConversationLockOnSuccess(t *testing.T) {
 			{Content: "Hello."},
 		},
 	}
-	orchestrator := newLockTestOrchestrator(llmClient, store)
+	orchestrator := newLockTestOrchestrator(t, llmClient, store)
 
 	answer, err := orchestrator.Run(
 		context.Background(),
@@ -119,7 +128,7 @@ func TestOrchestratorReleasesConversationLockWhenLoadFails(t *testing.T) {
 	store := &lockTestStore{
 		loadErr: errors.New("load failed"),
 	}
-	orchestrator := newLockTestOrchestrator(&testLLM{}, store)
+	orchestrator := newLockTestOrchestrator(t, &testLLM{}, store)
 
 	_, err := orchestrator.Run(
 		context.Background(),
@@ -139,7 +148,7 @@ func TestOrchestratorReleasesConversationLockWhenLoadFails(t *testing.T) {
 
 func TestOrchestratorReleasesConversationLockWhenLLMFails(t *testing.T) {
 	store := &lockTestStore{}
-	orchestrator := newLockTestOrchestrator(&testLLM{}, store)
+	orchestrator := newLockTestOrchestrator(t, &testLLM{}, store)
 
 	_, err := orchestrator.Run(
 		context.Background(),
@@ -166,7 +175,7 @@ func TestOrchestratorReturnsUnlockErrorAfterSuccessfulRun(t *testing.T) {
 			{Content: "Hello."},
 		},
 	}
-	orchestrator := newLockTestOrchestrator(llmClient, store)
+	orchestrator := newLockTestOrchestrator(t, llmClient, store)
 
 	answer, err := orchestrator.Run(
 		context.Background(),

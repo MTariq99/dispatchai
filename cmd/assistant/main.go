@@ -48,7 +48,10 @@ func main() {
 	runStore := storage.NewRunStore(db)
 	runService := run.NewRunService(runStore)
 
-	conversationStore := conversation.NewMemoryStore(db)
+	conversationStore, err := storage.NewConversationStore(db)
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	pc, err := project.NewClient(cfg)
 	if err != nil {
@@ -125,39 +128,74 @@ func main() {
 
 	executor := tools.NewExecutor(registry, toolGateway, policyEngine, toolIdempotency)
 
-	orchestrator := assistant.NewOrchestrator(geminiClient, registry, executor, cfg.LLM.Model, cfg.LLM.MaxTokens, cfg.LLM.Temperature, conversationStore)
+	conversationService, err := conversation.NewConversationService(conversationStore)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	orchestrator := assistant.NewOrchestrator(
+		geminiClient,
+		registry,
+		executor,
+		cfg.LLM.Model,
+		cfg.LLM.MaxTokens,
+		cfg.LLM.Temperature,
+		conversationService,
+	)
 
 	assistantService := assistant.NewAssistant(orchestrator)
-	requestIdempotency := idempotency.NewIdempotencyStore(db)
-	handler, err := api.NewHandler(cfg, assistantService, runService, requestIdempotency)
+
+	requestIdempotencyStore := storage.NewIdempotencyStore(db)
+	idempotencyService, err := idempotency.NewIdempotencyService(requestIdempotencyStore)
 	if err != nil {
-		log.Fatalf("handler: %v", err)
+		log.Fatal(err)
 	}
-	ToolRegistryStore := storage.NewToolRegistry(db)
-	ToolRegistryService, err := tools.NewRegistrationService(ToolRegistryStore)
+
+	// Construct this only after all of its dependencies exist.
+	conversationHandler, err := conversation.NewConversationHandler(
+		cfg,
+		conversationService,
+		assistantService,
+		runService,
+		idempotencyService,
+	)
+	if err != nil {
+		log.Fatalf("conversation handler: %v", err)
+	}
+
+	toolRegistryStore := storage.NewToolRegistry(db)
+	toolRegistryService, err := tools.NewRegistrationService(toolRegistryStore)
 	if err != nil {
 		log.Fatalf("tool registry service: %v", err)
 	}
 
-	ToolRegistryHandler, err := tools.NewToolRegistryHandler(cfg, ToolRegistryService)
+	toolRegistryHandler, err := tools.NewToolRegistryHandler(cfg, toolRegistryService)
 	if err != nil {
 		log.Fatalf("tool registry handler: %v", err)
 	}
+
 	integrationStore := storage.NewIntegrationOnboardingStore(db)
 	enrollmentStore := storage.NewIntegrationEnrollmentStore(db)
 
-	OnboardingService, err := integration.NewOnboardingService(integrationStore, enrollmentStore)
+	onboardingService, err := integration.NewOnboardingService(
+		integrationStore,
+		enrollmentStore,
+	)
 	if err != nil {
 		log.Fatalf("integration onboarding service: %v", err)
 	}
-	adminService, err := integration.NewAdminService(integrationStore) // same store instance
+
+	adminService, err := integration.NewAdminService(integrationStore)
 	if err != nil {
 		log.Fatalf("integration admin service: %v", err)
 	}
-	onboardingHandler := integration.NewIntegrationOnboardingHandler(OnboardingService, adminService)
-	// adminToken := os.Getenv("DISPATCHAI_ONBOARDING_TOKEN")
 
-	assistantHandler, err := api.NewAssistantHandler(cfg, handler, ToolRegistryHandler, onboardingHandler)
+	onboardingHandler := integration.NewIntegrationOnboardingHandler(
+		onboardingService,
+		adminService,
+	)
+
+	assistantHandler, err := api.NewAssistantHandler(cfg, toolRegistryHandler, onboardingHandler, conversationHandler)
 	if err != nil {
 		log.Fatalf("assistant handler: %v", err)
 	}
