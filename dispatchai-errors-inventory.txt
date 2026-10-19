@@ -1,0 +1,18 @@
+DispatchAI Error Inventory
+Generated: Mon Oct 19 11:24:29 AM PKT 2026
+Project: /home/target/Desktop/Golang/dispatchai
+
+===== 1. Error declarations and constructors =====
+
+===== 2. Error comparisons and wrapping =====
+
+===== 3. Error returns and propagation =====
+
+===== 4. HTTP error responses =====
+
+===== 5. Existing centralized errors package =====
+internal/errors/api.go
+internal/errors/authn.go
+internal/errors/idempotency.go
+internal/errors/integration.go
+internal/errors/err.go

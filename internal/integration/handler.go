@@ -3,7 +3,6 @@ package integration
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"net/http"
 
@@ -14,8 +13,8 @@ import (
 )
 
 type IntegrationOnboardingHandler struct {
-	service *OnboardingService // onboarding + enrollment
-	admin   *AdminService      // lifecycle + permissions
+	service *OnboardingService
+	admin   *AdminService
 }
 
 func NewIntegrationOnboardingHandler(service *OnboardingService, admin *AdminService) *IntegrationOnboardingHandler {
@@ -90,7 +89,6 @@ func (h *IntegrationOnboardingHandler) Enroll(c *gin.Context) {
 
 		case errors.Is(err, errs.ErrEnrollmentTokenInvalid),
 			errors.Is(err, errs.ErrIntegrationNotEnrollable):
-			// Deliberately identical bodies: no oracle for token or integration state.
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
 				"error": "enrollment token is invalid, expired, or already used",
 			})
@@ -99,7 +97,6 @@ func (h *IntegrationOnboardingHandler) Enroll(c *gin.Context) {
 			c.AbortWithStatusJSON(http.StatusConflict, gin.H{"error": "key_id already exists"})
 
 		default:
-			// Never echo err.Error(): it may contain database details.
 			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "could not complete enrollment"})
 		}
 		return
@@ -164,14 +161,12 @@ func (h *IntegrationOnboardingHandler) GetPermissions(c *gin.Context) {
 	}
 	perms, err := h.admin.PermissionCatalog(c.Request.Context())
 	if err != nil {
-		fmt.Println("err>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>", err)
 		writeAdminError(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"permissions": perms})
 }
 
-// GetGrantedPermissions lists what one integration has been granted.
 func (h *IntegrationOnboardingHandler) GetGrantedPermissions(c *gin.Context) {
 	if !h.adminReady(c) {
 		return

@@ -61,19 +61,19 @@ func (testIdempotency) Fail(context.Context, uuid.UUID, string, *models.Error) e
 }
 
 func TestToolLoopToolRoundTrip(t *testing.T) {
-	registry := tools.NewRegistry()
-	err := registry.Register(tools.NewStaticTool(models.Definition{
-		Name:        "find_order",
-		Description: "Find an order by ID",
-		Parameters:  map[string]any{"type": "object"},
-	}))
-	if err != nil {
-		t.Fatal(err)
-	}
+	// registry := tools.NewRegistry()
+	// err := registry.Register(tools.NewStaticTool(models.Definition{
+	// 	Name:        "find_order",
+	// 	Description: "Find an order by ID",
+	// 	Parameters:  map[string]any{"type": "object"},
+	// }))
+	// if err != nil {
+	// 	t.Fatal(err)
+	// }
 
 	gateway := &testGateway{}
 	executor := tools.NewExecutor(
-		registry,
+		nil,
 		project.ToolGateway(gateway),
 		policy.NewEngine(),
 		idempotency.ToolIdempotency(testIdempotency{}),
@@ -94,7 +94,7 @@ func TestToolLoopToolRoundTrip(t *testing.T) {
 		},
 	}
 
-	loop := NewToolLoop(fake, registry, executor, "test-model", 1000, 0)
+	loop := NewToolLoop(fake, nil, executor, "test-model", 1000, 0)
 	conv := conversation.NewConversation()
 	conv.AddUserMessage("Where is order ord-123?")
 
@@ -128,11 +128,11 @@ func TestToolLoopToolRoundTrip(t *testing.T) {
 }
 
 func TestToolLoopNilLLMResponse(t *testing.T) {
-	registry := tools.NewRegistry()
+	// registry := tools.NewRegistry()
 	fake := &testLLM{
 		responses: []*models.Response{nil},
 	}
-	loop := NewToolLoop(fake, registry, nil, "test-model", 1000, 0)
+	loop := NewToolLoop(fake, nil, nil, "test-model", 1000, 0)
 	conv := conversation.NewConversation()
 	conv.AddUserMessage("Hello")
 

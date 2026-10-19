@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"fmt"
 	"time"
 
 	"go.uber.org/zap"
@@ -29,7 +28,7 @@ func NewSignedAuthStore(db *sql.DB) *SignedAuthStore {
 
 func (s *SignedAuthStore) LookupActiveKey(ctx context.Context, clientID, keyID string) (*models.KeyRecord, error) {
 	if s == nil || s.db == nil {
-		return nil, errors.New("signed auth database is not configured")
+		return nil, errs.ErrDatabaseNotConfigured
 	}
 	const q = `
 		SELECT hi.id::text, ik.public_key
@@ -49,36 +48,36 @@ func (s *SignedAuthStore) LookupActiveKey(ctx context.Context, clientID, keyID s
 		return nil, errs.ErrSigKeyNotFound
 	}
 	if err != nil {
-		return nil, fmt.Errorf("lookup signing key: %w", err)
+		return nil, errs.Wrapf(errs.ErrLookupSigningKey, err)
 	}
 	return &rec, nil
 }
 
 func (s *SignedAuthStore) RecordNonce(ctx context.Context, integrationID, nonce string, expiresAt time.Time) (bool, error) {
 	if s == nil || s.db == nil {
-		return false, errors.New("signed auth database is not configured")
+		return false, errs.ErrDatabaseNotConfigured
 	}
 	res, err := s.db.ExecContext(ctx, `
 		INSERT INTO integration_request_nonces (integration_id, nonce, expires_at)
 		VALUES ($1::uuid, $2, $3)
 		ON CONFLICT (integration_id, nonce) DO NOTHING`, integrationID, nonce, expiresAt)
 	if err != nil {
-		return false, fmt.Errorf("record nonce: %w", err)
+		return false, errs.Wrapf(errs.ErrRecordNonce, err)
 	}
 	n, err := res.RowsAffected()
 	if err != nil {
-		return false, fmt.Errorf("record nonce: %w", err)
+		return false, errs.Wrapf(errs.ErrRecordNonce, err)
 	}
 	return n == 1, nil
 }
 
 func (s *SignedAuthStore) PurgeExpiredNonces(ctx context.Context) (int64, error) {
 	if s == nil || s.db == nil {
-		return 0, errors.New("signed auth database is not configured")
+		return 0, errs.ErrDatabaseNotConfigured
 	}
 	res, err := s.db.ExecContext(ctx, `DELETE FROM integration_request_nonces WHERE expires_at < NOW()`)
 	if err != nil {
-		return 0, fmt.Errorf("purge nonces: %w", err)
+		return 0, errs.Wrapf(errs.ErrPurgeExpiredNonces, err)
 	}
 	return res.RowsAffected()
 }

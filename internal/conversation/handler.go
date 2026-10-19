@@ -134,6 +134,7 @@ func (ch *ConversationHandler) Chat(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, models.ErrorResponse{Error: "integration authentication required"})
 		return
 	}
+	ctx := c.Request.Context()
 	integrationID, err := utils.ParseUUID(integrationIDStr, "integration id")
 	if err != nil {
 		c.JSON(http.StatusBadRequest, models.ErrorResponse{Error: err.Error()})
@@ -171,16 +172,25 @@ func (ch *ConversationHandler) Chat(c *gin.Context) {
 		return
 	}
 	if req.ConversationID == uuid.Nil {
-		req.ConversationID = uuid.New()
+		c.JSON(http.StatusBadRequest, models.ErrorResponse{Error: "failed to fingerprint request"})
+		return
+	}
+	if _, err := ch.conversation.GetConversation(ctx, integrationID, req.ConversationID); err != nil {
+		if errors.Is(err, errs.ErrConversationNotFound) {
+			c.JSON(http.StatusNotFound, models.ErrorResponse{Error: err.Error()})
+			return
+		} else {
+			c.JSON(http.StatusInternalServerError, models.ErrorResponse{Error: err.Error()})
+			return
+		}
 	}
 
 	requestID := uuid.New()
-	ctx := c.Request.Context()
 
 	state, found, err := ch.requestIdempotencyServ.GetState(ctx, integrationID, idempotencyKey)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, models.ErrorResponse{
-			Error: "failed to check request idempotency",
+			Error: "failed to check request idempotency " + err.Error(),
 		})
 		return
 	}

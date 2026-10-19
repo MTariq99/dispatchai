@@ -4,10 +4,10 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"fmt"
 
 	"github.com/google/uuid"
 
+	errs "github.com/mtariq99/dispatchai/internal/errors"
 	"github.com/mtariq99/dispatchai/internal/run"
 )
 
@@ -71,7 +71,7 @@ func (s *RunStore) Create(ctx context.Context, r *run.Run) error {
 		r.UpdatedAt,
 	)
 	if err != nil {
-		return fmt.Errorf("create run: %w", err)
+		return errs.Wrapf(errs.ErrCreateRun, err)
 	}
 
 	return nil
@@ -177,12 +177,12 @@ func (s *RunStore) Update(ctx context.Context, r *run.Run) error {
 		r.UpdatedAt,
 	)
 	if err != nil {
-		return fmt.Errorf("update run: %w", err)
+		return errs.Wrapf(errs.ErrUpdateRun, err)
 	}
 
 	rows, err := result.RowsAffected()
 	if err != nil {
-		return fmt.Errorf("get updated run rows: %w", err)
+		return errs.Wrapf(errs.ErrGetUpdatedRunRows, err)
 	}
 
 	if rows == 0 {
@@ -229,7 +229,7 @@ func (s *RunStore) scanRun(ctx context.Context, query string, id uuid.UUID) (*ru
 			return nil, sql.ErrNoRows
 		}
 
-		return nil, fmt.Errorf("get run: %w", err)
+		return nil, errs.Wrapf(errs.ErrGetRun, err)
 	}
 
 	r.ModelProvider = modelProvider.String

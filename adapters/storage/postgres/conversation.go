@@ -4,11 +4,11 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
-	"fmt"
 
 	"github.com/cockroachdb/errors"
 	"github.com/google/uuid"
 	"github.com/mtariq99/dispatchai/internal/enums"
+	errs "github.com/mtariq99/dispatchai/internal/errors"
 	"github.com/mtariq99/dispatchai/models"
 )
 
@@ -18,7 +18,7 @@ type ConversationStore struct {
 
 func NewConversationStore(db *sql.DB) (*ConversationStore, error) {
 	if db == nil {
-		return nil, errors.New("database cannot be nil")
+		return nil, errs.ErrDatabaseCannotBeNil
 	}
 
 	return &ConversationStore{
@@ -28,15 +28,15 @@ func NewConversationStore(db *sql.DB) (*ConversationStore, error) {
 
 func (s *ConversationStore) Lock(ctx context.Context, conversationID uuid.UUID) (func() error, error) {
 	if s == nil || s.db == nil {
-		return nil, fmt.Errorf("conversation database is not configured")
+		return nil, errs.ErrDatabaseNotConfigured
 	}
 	if conversationID == uuid.Nil {
-		return nil, fmt.Errorf("conversation id is required")
+		return nil, errs.ErrConversationIDRequired
 	}
 
 	conn, err := s.db.Conn(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("acquire conversation database connection: %w", err)
+		return nil, errs.Wrapf(errs.ErrAcquireConnection, err)
 	}
 
 	if _, err := conn.ExecContext(
@@ -45,7 +45,7 @@ func (s *ConversationStore) Lock(ctx context.Context, conversationID uuid.UUID) 
 		conversationID.String(),
 	); err != nil {
 		_ = conn.Close()
-		return nil, fmt.Errorf("lock conversation: %w", err)
+		return nil, errs.Wrapf(errs.ErrLockConversation, err)
 	}
 
 	release := func() error {
@@ -57,10 +57,10 @@ func (s *ConversationStore) Lock(ctx context.Context, conversationID uuid.UUID) 
 		closeErr := conn.Close()
 
 		if unlockErr != nil {
-			return fmt.Errorf("unlock conversation: %w", unlockErr)
+			return errs.Wrapf(errs.ErrUnlockConversation, err)
 		}
 		if closeErr != nil {
-			return fmt.Errorf("release conversation database connection: %w", closeErr)
+			return errs.Wrapf(errs.ErrReleaseConnection, err)
 		}
 		return nil
 	}
@@ -70,13 +70,13 @@ func (s *ConversationStore) Lock(ctx context.Context, conversationID uuid.UUID) 
 
 func (s *ConversationStore) Load(conversationID uuid.UUID, integrationID uuid.UUID) ([]*models.Message, error) {
 	if s == nil || s.db == nil {
-		return nil, fmt.Errorf("conversation database is not configured")
+		return nil, errs.ErrDatabaseNotConfigured
 	}
 	if conversationID == uuid.Nil {
-		return nil, fmt.Errorf("conversation id is required")
+		return nil, errs.ErrConversationIDRequired
 	}
 	if integrationID == uuid.Nil {
-		return nil, fmt.Errorf("integration id is required")
+		return nil, errs.ErrIntegrationIDRequired
 	}
 
 	ctx := context.Background()
@@ -90,10 +90,10 @@ func (s *ConversationStore) Load(conversationID uuid.UUID, integrationID uuid.UU
 	var owned bool
 	err := s.db.QueryRowContext(ctx, IsOwnedConvQuery, conversationID, integrationID).Scan(&owned)
 	if err != nil {
-		return nil, fmt.Errorf("check conversation ownership: %w", err)
+		return nil, errs.ErrCheckConversationOwnership
 	}
 	if !owned {
-		return nil, fmt.Errorf("conversation not found or does not belong to integration")
+		return nil, errs.ErrConversationNotFound
 	}
 	convMsgsQuery := `
 		SELECT role, content, tool_calls, tool_call_id
@@ -103,7 +103,7 @@ func (s *ConversationStore) Load(conversationID uuid.UUID, integrationID uuid.UU
 		`
 	rows, err := s.db.QueryContext(ctx, convMsgsQuery, conversationID)
 	if err != nil {
-		return nil, fmt.Errorf("load conversation messages: %w", err)
+		return nil, errs.ErrLoadConversationMessages
 	}
 	defer rows.Close()
 
@@ -123,7 +123,7 @@ func (s *ConversationStore) Load(conversationID uuid.UUID, integrationID uuid.UU
 			&toolCallsRaw,
 			&toolCallID,
 		); err != nil {
-			return nil, fmt.Errorf("scan conversation message: %w", err)
+			return nil, errs.ErrScanConversationMessage
 		}
 
 		message := &models.Message{
@@ -134,7 +134,7 @@ func (s *ConversationStore) Load(conversationID uuid.UUID, integrationID uuid.UU
 
 		if len(toolCallsRaw) > 0 {
 			if err := json.Unmarshal(toolCallsRaw, &message.ToolCalls); err != nil {
-				return nil, fmt.Errorf("decode conversation tool calls: %w", err)
+				return nil, errs.ErrDecodeToolCalls
 			}
 		}
 
@@ -142,7 +142,7 @@ func (s *ConversationStore) Load(conversationID uuid.UUID, integrationID uuid.UU
 	}
 
 	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("iterate conversation messages: %w", err)
+		return nil, errs.ErrIterateConversationMessages
 	}
 
 	return messages, nil
@@ -150,18 +150,18 @@ func (s *ConversationStore) Load(conversationID uuid.UUID, integrationID uuid.UU
 
 func (s *ConversationStore) Save(conversationID uuid.UUID, integrationID uuid.UUID, messages []*models.Message) error {
 	if s == nil || s.db == nil {
-		return fmt.Errorf("conversation database is not configured")
+		return errs.ErrDatabaseNotConfigured
 	}
 	if conversationID == uuid.Nil {
-		return fmt.Errorf("conversation id is required")
+		return errs.ErrConversationIDRequired
 	}
 	if integrationID == uuid.Nil {
-		return fmt.Errorf("integration id is required")
+		return errs.ErrIntegrationIDRequired
 	}
 
-	for i, msg := range messages {
+	for _, msg := range messages {
 		if msg == nil {
-			return fmt.Errorf("conversation message at index %d is nil", i)
+			return errs.ErrConversationMessageNil
 		}
 	}
 
@@ -169,13 +169,12 @@ func (s *ConversationStore) Save(conversationID uuid.UUID, integrationID uuid.UU
 
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
-		return fmt.Errorf("begin save conversation transaction: %w", err)
+		return errs.ErrBeginConversationTransaction
 	}
 	defer func() {
 		_ = tx.Rollback()
 	}()
 
-	// Verify ownership and lock the conversation row for this transaction.
 	var ownerIntegrationID uuid.UUID
 
 	err = tx.QueryRowContext(
@@ -188,17 +187,14 @@ func (s *ConversationStore) Save(conversationID uuid.UUID, integrationID uuid.UU
 	).Scan(&ownerIntegrationID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return fmt.Errorf(
-				"conversation not found or does not belong to integration",
-			)
+			return errs.ErrConversationNotFound
 		}
-		return fmt.Errorf("load conversation ownership: %w", err)
+
+		return errs.Wrapf(err, errs.ErrGetConversation)
 	}
 
 	if ownerIntegrationID != integrationID {
-		return fmt.Errorf(
-			"conversation not found or does not belong to integration",
-		)
+		return errs.ErrConversationNotFound
 	}
 
 	// Replace the existing conversation messages atomically.
@@ -208,7 +204,7 @@ func (s *ConversationStore) Save(conversationID uuid.UUID, integrationID uuid.UU
 		conversationID,
 	)
 	if err != nil {
-		return fmt.Errorf("delete previous conversation messages: %w", err)
+		return errs.ErrDeleteConversationMessages
 	}
 
 	for i, msg := range messages {
@@ -217,7 +213,7 @@ func (s *ConversationStore) Save(conversationID uuid.UUID, integrationID uuid.UU
 		if len(msg.ToolCalls) > 0 {
 			toolCallsJSON, err = json.Marshal(msg.ToolCalls)
 			if err != nil {
-				return fmt.Errorf("marshal tool calls at index %d: %w", i, err)
+				return errs.ErrMarshalToolCalls
 			}
 		}
 		insertConvMsgQuery := `
@@ -232,7 +228,7 @@ func (s *ConversationStore) Save(conversationID uuid.UUID, integrationID uuid.UU
 			VALUES ($1, $2, $3, $4, $5, $6)`
 		_, err = tx.ExecContext(ctx, insertConvMsgQuery, conversationID, i, msg.Role, msg.Content, toolCallsJSON, msg.ToolCallID)
 		if err != nil {
-			return fmt.Errorf("insert conversation message at index %d: %w", i, err)
+			return errs.ErrInsertConversationMessage
 		}
 	}
 	updateConvQuery := `
@@ -242,11 +238,11 @@ func (s *ConversationStore) Save(conversationID uuid.UUID, integrationID uuid.UU
 		 `
 	_, err = tx.ExecContext(ctx, updateConvQuery, conversationID, integrationID)
 	if err != nil {
-		return fmt.Errorf("update conversation timestamp: %w", err)
+		return errs.ErrUpdateConversationTimestamp
 	}
 
 	if err := tx.Commit(); err != nil {
-		return fmt.Errorf("commit conversation messages transaction: %w", err)
+		return errs.ErrCommitConversationTransaction
 	}
 
 	return nil
@@ -254,7 +250,7 @@ func (s *ConversationStore) Save(conversationID uuid.UUID, integrationID uuid.UU
 
 func (s *ConversationStore) CreateConversation(ctx context.Context, integrationID uuid.UUID, title string) (*models.Conversation, error) {
 	if integrationID == uuid.Nil {
-		return nil, fmt.Errorf("integration id is required")
+		return nil, errs.ErrIntegrationIDRequired
 	}
 
 	query := `
@@ -296,7 +292,7 @@ func (s *ConversationStore) CreateConversation(ctx context.Context, integrationI
 		&archivedAt,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("create conversation: %w", err)
+		return nil, errs.ErrCreateConversation
 	}
 
 	if nullableTitle.Valid {
@@ -312,11 +308,11 @@ func (s *ConversationStore) CreateConversation(ctx context.Context, integrationI
 
 func (s *ConversationStore) GetConversation(ctx context.Context, integrationID, conversationID uuid.UUID) (*models.Conversation, error) {
 	if integrationID == uuid.Nil {
-		return nil, fmt.Errorf("integration id is required")
+		return nil, errs.ErrIntegrationIDRequired
 	}
 
 	if conversationID == uuid.Nil {
-		return nil, fmt.Errorf("conversation id is required")
+		return nil, errs.ErrConversationIDRequired
 	}
 
 	query := `
@@ -353,10 +349,10 @@ func (s *ConversationStore) GetConversation(ctx context.Context, integrationID, 
 	)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil, fmt.Errorf("conversation not found or does not belong to integration")
+			return nil, errs.ErrConversationNotFound
 		}
 
-		return nil, fmt.Errorf("get conversation: %w", err)
+		return nil, errs.ErrGetConversation
 	}
 
 	if nullableTitle.Valid {

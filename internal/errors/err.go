@@ -1,11 +1,41 @@
 package errs
 
-import "errors"
-
-var (
-	ErrToolNotFound        = errors.New("tool not found")
-	ErrVersionConflict     = errors.New("tool definition version conflict")
-	ErrIdempotencyConflict = errors.New("idempotency key reused with different request")
-	ErrIntegrationInactive = errors.New("integration is not active")
-	ErrToolUnavailable     = errors.New("tool is disabled or deleted")
+import (
+	"fmt"
 )
+
+func Wrap(operation error, cause error) error {
+	if cause == nil {
+		return nil
+	}
+	if operation == nil {
+		return cause
+	}
+
+	return fmt.Errorf("%w: %w", operation, cause)
+}
+
+func Wrapf(operation error, cause error, detail ...any) error {
+	if cause == nil {
+		return nil
+	}
+	if operation == nil {
+		return cause
+	}
+
+	if len(detail) == 0 {
+		return fmt.Errorf("%w: %w", operation, cause)
+	}
+
+	format, ok := detail[0].(string)
+	if !ok {
+		return fmt.Errorf("%w: %w", operation, cause)
+	}
+
+	return fmt.Errorf(
+		"%w: %s: %w",
+		operation,
+		fmt.Sprintf(format, detail[1:]...),
+		cause,
+	)
+}

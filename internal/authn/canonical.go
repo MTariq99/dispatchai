@@ -9,24 +9,8 @@ import (
 
 	"github.com/mtariq99/dispatchai/internal/enums"
 	errs "github.com/mtariq99/dispatchai/internal/errors"
+	"github.com/mtariq99/dispatchai/models"
 )
-
-type SignedHeaders struct {
-	ClientID      string
-	KeyID         string
-	Timestamp     string
-	Nonce         string
-	RequestID     string
-	ContentSHA256 string
-	Algorithm     string
-}
-
-type CanonicalRequest struct {
-	Method  string
-	Path    string
-	Query   string
-	Headers SignedHeaders
-}
 
 func BodySHA256(body []byte) string {
 	sum := sha256.Sum256(body)
@@ -43,7 +27,7 @@ func BodySHA256(body []byte) string {
 //   - Query must be URL.RawQuery from the incoming request.
 //   - The body hash must be lowercase hexadecimal SHA-256.
 
-func BuildCanonicalReq(req CanonicalRequest) ([]byte, error) {
+func BuildCanonicalReq(req models.CanonicalRequest) ([]byte, error) {
 	h := req.Headers
 
 	if req.Method == "" || req.Path == "" {
@@ -103,9 +87,9 @@ func BuildCanonicalReq(req CanonicalRequest) ([]byte, error) {
 	return []byte(canonical), nil
 }
 
-func CanonicalRequestFromHTTP(r *http.Request, headers SignedHeaders) (CanonicalRequest, error) {
+func CanonicalRequestFromHTTP(r *http.Request, headers models.SignedHeaders) (models.CanonicalRequest, error) {
 	if r == nil || r.URL == nil {
-		return CanonicalRequest{}, fmt.Errorf("%w: request URL is missing", errs.ErrInvalidRequest)
+		return models.CanonicalRequest{}, fmt.Errorf("%w: request URL is missing", errs.ErrInvalidRequest)
 	}
 
 	path := r.URL.EscapedPath()
@@ -113,7 +97,7 @@ func CanonicalRequestFromHTTP(r *http.Request, headers SignedHeaders) (Canonical
 		path = "/"
 	}
 
-	return CanonicalRequest{
+	return models.CanonicalRequest{
 		Method:  r.Method,
 		Path:    path,
 		Query:   r.URL.RawQuery,

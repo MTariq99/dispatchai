@@ -82,7 +82,7 @@ const testBody = `{"a":1}`
 
 func signedRequest(t *testing.T, priv *ecdsa.PrivateKey, ts int64) *http.Request {
 	t.Helper()
-	headers := SignedHeaders{
+	headers := models.SignedHeaders{
 		ClientID:      "cli_test",
 		KeyID:         "key-1",
 		Timestamp:     strconv.FormatInt(ts, 10),

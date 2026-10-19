@@ -42,16 +42,16 @@ func ScanHostIntegration(row interface{ Scan(...any) error }) (*models.HostInteg
 
 func (i *IntegrationOnboardingStore) CreatePendingIntegration(ctx context.Context, clientID string, displayName string, metadata []byte, enrollmentTokenHash []byte, enrollmentTokenExpiresAt time.Time) error {
 	if i == nil || i.db == nil {
-		return fmt.Errorf("integration onboarding database is not configured")
+		return errs.ErrDatabaseNotConfigured
 	}
 
 	if len(enrollmentTokenHash) != 32 {
-		return fmt.Errorf("enrollment token hash must be 32 bytes")
+		return errs.ErrEnrollmentTokenInvalid
 	}
 
 	tx, err := i.db.BeginTx(ctx, nil)
 	if err != nil {
-		return fmt.Errorf("begin integration onboarding transaction: %w", err)
+		return errs.ErrBeginOnboardingTransaction
 	}
 	defer func() {
 		_ = tx.Rollback()
@@ -77,7 +77,7 @@ func (i *IntegrationOnboardingStore) CreatePendingIntegration(ctx context.Contex
 		metadata,
 	).Scan(&integrationID)
 	if err != nil {
-		return fmt.Errorf("create pending integration: %w", err)
+		return errs.ErrCreatePendingIntegration
 	}
 
 	const insertEnrollmentToken = `
@@ -97,11 +97,11 @@ func (i *IntegrationOnboardingStore) CreatePendingIntegration(ctx context.Contex
 		enrollmentTokenExpiresAt,
 	)
 	if err != nil {
-		return fmt.Errorf("persist integration enrollment token: %w", err)
+		return errs.Wrapf(errs.ErrPersistEnrollmentToken, err)
 	}
 
 	if err := tx.Commit(); err != nil {
-		return fmt.Errorf("commit integration onboarding transaction: %w", err)
+		return errs.Wrapf(errs.ErrCommitOnboardingTransaction, err)
 	}
 
 	return nil
@@ -109,7 +109,7 @@ func (i *IntegrationOnboardingStore) CreatePendingIntegration(ctx context.Contex
 
 func (i *IntegrationOnboardingStore) GetHostIntegrationByClientID(ctx context.Context, clientID string) (*models.HostIntegration, error) {
 	if i == nil || i.db == nil {
-		return nil, errors.New("integration database is not configured")
+		return nil, errs.ErrDatabaseNotConfigured
 	}
 	const q = `
 		SELECT id, integration_key, display_name, status, metadata, created_at, updated_at
@@ -124,7 +124,7 @@ func (i *IntegrationOnboardingStore) GetHostIntegrationByClientID(ctx context.Co
 
 func (i *IntegrationOnboardingStore) UpateHostIntegrationStatus(ctx context.Context, clientID string, status string) error {
 	if i == nil || i.db == nil {
-		return errors.New("integration database is not configured")
+		return errs.ErrDatabaseNotConfigured
 	}
 	if clientID == "" || status == "" {
 		return errs.ErrInvalidOnboardingRequest
@@ -132,7 +132,7 @@ func (i *IntegrationOnboardingStore) UpateHostIntegrationStatus(ctx context.Cont
 
 	tx, err := i.db.BeginTx(ctx, nil)
 	if err != nil {
-		return fmt.Errorf("begin transaction: %w", err)
+		return errs.ErrBeginOnboardingTransaction
 	}
 	defer func() { _ = tx.Rollback() }()
 
@@ -144,11 +144,11 @@ func (i *IntegrationOnboardingStore) UpateHostIntegrationStatus(ctx context.Cont
 		return errs.ErrIntegrationNotFound
 	}
 	if err != nil {
-		return fmt.Errorf("lock integration: %w", err)
+		return errs.Wrapf(errs.ErrLockIntegration, err)
 	}
 
 	if err := utils.ValidateStatusTransition(enums.Status(current), enums.Status(status)); err != nil {
-		return fmt.Errorf("%w: %v", errs.ErrInvalidStatusTransition, err)
+		return errs.Wrapf(errs.ErrInvalidStatusTransition, err)
 	}
 
 	if status == "active" {
@@ -172,7 +172,7 @@ func (i *IntegrationOnboardingStore) UpateHostIntegrationStatus(ctx context.Cont
 		return fmt.Errorf("update integration status: %w", err)
 	}
 	if err := tx.Commit(); err != nil {
-		return fmt.Errorf("commit integration status update: %w", err)
+		return errs.Wrapf(errs.ErrCommitOnboardingTransaction, err)
 	}
 	return nil
 }
@@ -213,16 +213,16 @@ func (i *IntegrationOnboardingStore) GetHostPermissions(ctx context.Context) ([]
 
 func (i *IntegrationOnboardingStore) GrantPermissions(ctx context.Context, clientID string, integrationID uuid.UUID, permissions []string, grantedBy string) (*models.GrantPermissions, error) {
 	if clientID == "" {
-		return nil, errors.New("client id is required")
+		return nil, errs.ErrClientIDRequired
 	}
 	if integrationID == uuid.Nil {
-		return nil, errors.New("integration id is required")
+		return nil, errs.ErrIntegrationIDRequired
 	}
 	if grantedBy == "" {
-		return nil, errors.New("granted by is required")
+		return nil, errs.ErrGrantedByRequired
 	}
 	if len(permissions) == 0 {
-		return nil, errors.New("at least one permission is required")
+		return nil, errs.ErrPermissionRequired
 	}
 
 	uniquePermissions := make([]string, 0, len(permissions))
@@ -230,7 +230,7 @@ func (i *IntegrationOnboardingStore) GrantPermissions(ctx context.Context, clien
 
 	for _, permission := range permissions {
 		if permission == "" {
-			return nil, errors.New("permission cannot be empty")
+			return nil, errs.ErrPermissionEmpty
 		}
 
 		if _, exists := seen[permission]; exists {
@@ -243,7 +243,7 @@ func (i *IntegrationOnboardingStore) GrantPermissions(ctx context.Context, clien
 
 	tx, err := i.db.BeginTx(ctx, nil)
 	if err != nil {
-		return nil, fmt.Errorf("begin grant permissions transaction: %w", err)
+		return nil, errs.Wrapf(errs.ErrBeginGrantPermissions, err)
 	}
 	defer tx.Rollback()
 
@@ -258,10 +258,10 @@ func (i *IntegrationOnboardingStore) GrantPermissions(ctx context.Context, clien
     `
 	err = tx.QueryRowContext(ctx, SelectHostIntegrationQuery, integrationID, clientID).Scan(&exists)
 	if err != nil {
-		return nil, fmt.Errorf("verify integration: %w", err)
+		return nil, errs.Wrapf(errs.ErrCheckIntegration, err)
 	}
 	if !exists {
-		return nil, errors.New("integration not found for client")
+		return nil, errs.ErrIntegrationNotFound
 	}
 
 	const insertQuery = `
@@ -280,12 +280,12 @@ func (i *IntegrationOnboardingStore) GrantPermissions(ctx context.Context, clien
 			if errors.As(err, &pqErr) && pqErr.Code == "23503" {
 				return nil, errs.ErrUnknownPermission
 			}
-			return nil, fmt.Errorf("grant permission %q: %w", permission, err)
+			return nil, errs.Wrapf(errs.ErrGrantPermission, err)
 		}
 	}
 
 	if err := tx.Commit(); err != nil {
-		return nil, fmt.Errorf("commit permission grants: %w", err)
+		return nil, errs.Wrapf(errs.ErrCommitPermissionGrants, err)
 	}
 
 	return &models.GrantPermissions{
@@ -296,7 +296,7 @@ func (i *IntegrationOnboardingStore) GrantPermissions(ctx context.Context, clien
 
 func (i *IntegrationOnboardingStore) GetGrantedPermissions(ctx context.Context, clientID string) ([]string, error) {
 	if i == nil || i.db == nil {
-		return nil, errors.New("integration database is not configured")
+		return nil, errs.ErrDatabaseNotConfigured
 	}
 	var exists bool
 	if err := i.db.QueryRowContext(ctx,
@@ -311,7 +311,7 @@ func (i *IntegrationOnboardingStore) GetGrantedPermissions(ctx context.Context, 
 		JOIN host_integrations h ON h.id = g.integration_id
 		WHERE h.integration_key = $1 ORDER BY g.permission`, clientID)
 	if err != nil {
-		return nil, fmt.Errorf("list grants: %w", err)
+		return nil, errs.Wrapf(errs.ErrListGrantedPermissions, err)
 	}
 	defer rows.Close()
 	perms := []string{}
@@ -327,11 +327,11 @@ func (i *IntegrationOnboardingStore) GetGrantedPermissions(ctx context.Context, 
 
 func (i *IntegrationOnboardingStore) HasAccess(ctx context.Context, integrationID, permission string) (bool, error) {
 	if i == nil || i.db == nil {
-		return false, errors.New("integration permission database is not configured")
+		return false, errs.ErrDatabaseNotConfigured
 	}
 
 	if integrationID == "" || permission == "" {
-		return false, errors.New("missing required fields")
+		return false, errs.ErrFieldsRequired
 	}
 	query := `
 	SELECT EXISTS(
@@ -344,7 +344,7 @@ func (i *IntegrationOnboardingStore) HasAccess(ctx context.Context, integrationI
 	if err := i.db.QueryRowContext(
 		ctx, query, integrationID, permission,
 	).Scan(&granted); err != nil {
-		return false, fmt.Errorf("check integration permission: %w", err)
+		return false, errs.Wrapf(errs.ErrCheckIntegrationPermission, err)
 	}
 
 	return granted, nil

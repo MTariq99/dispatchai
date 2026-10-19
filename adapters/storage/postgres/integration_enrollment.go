@@ -5,7 +5,6 @@ import (
 	"crypto/sha256"
 	"database/sql"
 	"errors"
-	"fmt"
 
 	"github.com/lib/pq"
 
@@ -34,7 +33,7 @@ func NewIntegrationEnrollmentStore(db *sql.DB) *IntegrationEnrollmentStore {
 
 func (s *IntegrationEnrollmentStore) EnrollKey(ctx context.Context, p models.EnrollKeyParams) (*models.EnrolledKey, error) {
 	if s == nil || s.db == nil {
-		return nil, errors.New("integration enrollment database is not configured")
+		return nil, errs.ErrDatabaseNotConfigured
 	}
 	if len(p.TokenHash) != sha256.Size {
 		return nil, errs.ErrInvalidEnrollmentRequest
@@ -48,7 +47,7 @@ func (s *IntegrationEnrollmentStore) EnrollKey(ctx context.Context, p models.Enr
 
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
-		return nil, fmt.Errorf("begin integration enrollment transaction: %w", err)
+		return nil, errs.ErrBeginEnrollmentTransaction
 	}
 	defer func() { _ = tx.Rollback() }()
 
@@ -66,7 +65,7 @@ func (s *IntegrationEnrollmentStore) EnrollKey(ctx context.Context, p models.Enr
 		return nil, errs.ErrEnrollmentTokenInvalid
 	}
 	if err != nil {
-		return nil, fmt.Errorf("consume enrollment token: %w", err)
+		return nil, errs.Wrapf(errs.ErrConsumeEnrollmentToken, err)
 	}
 
 	var clientID, status string
@@ -78,7 +77,7 @@ func (s *IntegrationEnrollmentStore) EnrollKey(ctx context.Context, p models.Enr
 	`
 	err = tx.QueryRowContext(ctx, selectIntegQuery, integrationID).Scan(&clientID, &status)
 	if err != nil {
-		return nil, fmt.Errorf("lock integration for enrollment: %w", err)
+		return nil, errs.Wrapf(errs.ErrLockIntegration, err)
 	}
 	if status != "pending" {
 		return nil, errs.ErrIntegrationNotEnrollable
@@ -93,11 +92,11 @@ func (s *IntegrationEnrollmentStore) EnrollKey(ctx context.Context, p models.Enr
 		if errors.As(err, &pqErr) && pqErr.Code == pgUniqueViolation && pqErr.Constraint == integrationKeyUniq {
 			return nil, errs.ErrKeyIDConflict
 		}
-		return nil, fmt.Errorf("insert integration key: %w", err)
+		return nil, errs.Wrapf(errs.ErrInsertIntegrationKey, err)
 	}
 
 	if err := tx.Commit(); err != nil {
-		return nil, fmt.Errorf("commit integration enrollment transaction: %w", err)
+		return nil, errs.ErrCommitEnrollmentTransaction
 	}
 
 	return &models.EnrolledKey{

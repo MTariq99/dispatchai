@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/google/uuid"
 	"github.com/mtariq99/dispatchai/internal/enums"
 	"github.com/mtariq99/dispatchai/models"
 )
@@ -154,4 +155,11 @@ func (s *RegistrationService) Delete(ctx context.Context, integrationID string, 
 		return fmt.Errorf("delete tool: %w", err)
 	}
 	return nil
+}
+
+func (s *RegistrationService) GetToolsList(ctx context.Context, integrationID uuid.UUID) ([]*DefinitionRecord, error) {
+	if integrationID == uuid.Nil {
+		return nil, errors.New("integration id is required")
+	}
+	return s.repo.ListEnabled(ctx, integrationID)
 }

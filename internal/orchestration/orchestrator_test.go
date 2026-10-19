@@ -7,7 +7,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/mtariq99/dispatchai/internal/conversation"
-	"github.com/mtariq99/dispatchai/internal/tools"
 	"github.com/mtariq99/dispatchai/models"
 )
 
@@ -71,7 +70,7 @@ func newLockTestOrchestrator(
 
 	return NewOrchestrator(
 		llmClient,
-		tools.NewRegistry(),
+		nil,
 		nil,
 		"test-model",
 		1000,

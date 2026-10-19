@@ -3,30 +3,11 @@ package project
 import (
 	"context"
 	"encoding/json"
+	"log"
 
 	"github.com/google/uuid"
 	"github.com/mtariq99/dispatchai/models"
 )
-
-// This file defines the protocol boundary used when DispatchAI asks
-// the Host Project to execute a capability.
-//
-// The gateway is deliberately generic.
-//
-// DispatchAI says:
-//
-//   "Execute tool X with these arguments."
-//
-// The Host Project decides:
-//
-//   - whether the caller is authorized
-//   - whether the arguments are valid
-//   - whether business rules permit the operation
-//   - how to access its database/services
-//   - how to perform the operation
-//
-// This file therefore represents the most important integration
-// boundary in the system.
 
 type ToolGateway interface {
 	Execute(ctx context.Context, call models.Call, execCtx models.ExecutionContext) *models.Result
@@ -107,25 +88,13 @@ func (ptg *ProjectToolGateway) Execute(ctx context.Context, call models.Call, ex
 			},
 		}
 	}
-
-	if execCtx.Identity.UserID == uuid.Nil {
+	if execCtx.IntegrationID == uuid.Nil {
 		return &models.Result{
 			CallID:  call.ID,
 			Success: false,
 			Error: &models.Error{
 				Code:    "INVALID_EXECUTION_CONTEXT",
-				Message: "user ID cannot be empty",
-			},
-		}
-	}
-
-	if execCtx.Tenant.TenantID == uuid.Nil {
-		return &models.Result{
-			CallID:  call.ID,
-			Success: false,
-			Error: &models.Error{
-				Code:    "INVALID_EXECUTION_CONTEXT",
-				Message: "tenant ID cannot be empty",
+				Message: "integration ID cannot be empty",
 			},
 		}
 	}
@@ -144,6 +113,7 @@ func (ptg *ProjectToolGateway) Execute(ctx context.Context, call models.Call, ex
 	}
 	resp, err := ptg.client.ExecuteTool(ctx, toolRequest)
 	if err != nil {
+		log.Printf("project client error: tool=%s call_id=%s request_id=%s err=%v", call.Name, call.ID, execCtx.RequestID, err)
 		return &models.Result{
 			CallID:  call.ID,
 			Success: false,

@@ -59,74 +59,21 @@ func main() {
 	}
 
 	toolGateway := project.NewProjectToolGateway(pc)
-
-	registry := tools.NewRegistry()
-
-	// if err := registry.Register(tools.NewStaticTool(models.Definition{
-	// 	Name:        "get_customers",
-	// 	Description: "List customers for the current tenant, optionally paginated.",
-	// 	Parameters: map[string]any{
-	// 		"type": "object",
-	// 		"properties": map[string]any{
-	// 			"limit": map[string]any{
-	// 				"type":        "integer",
-	// 				"description": "Max number of customers to return",
-	// 			},
-	// 			"offset": map[string]any{
-	// 				"type":        "integer",
-	// 				"description": "Pagination offset",
-	// 			},
-	// 		},
-	// 	},
-	// })); err != nil {
-	// 	log.Fatal(err)
-	// }
-
-	// if err := registry.Register(tools.NewStaticTool(models.Definition{
-	// 	Name:        "find_delayed_customers",
-	// 	Description: "Find customers whose orders have been delayed beyond a specified number of minutes.",
-	// 	Parameters: map[string]any{
-	// 		"type": "object",
-	// 		"properties": map[string]any{
-	// 			"delay_minutes": map[string]any{
-	// 				"type":        "integer",
-	// 				"description": "Minimum delay in minutes to filter by",
-	// 			},
-	// 		},
-	// 	},
-	// })); err != nil {
-	// 	log.Fatal(err)
-	// }
-
-	// if err := registry.Register(tools.NewStaticTool(models.Definition{
-	// 	Name:        "send_notification",
-	// 	Description: "Send a notification message to a specific customer.",
-	// 	Parameters: map[string]any{
-	// 		"type": "object",
-	// 		"properties": map[string]any{
-	// 			"customer_id": map[string]any{
-	// 				"type":        "string",
-	// 				"description": "The ID of the customer to notify",
-	// 			},
-	// 			"message": map[string]any{
-	// 				"type":        "string",
-	// 				"description": "The notification message content",
-	// 			},
-	// 		},
-	// 		"required": []string{
-	// 			"customer_id",
-	// 			"message",
-	// 		},
-	// 	},
-	// })); err != nil {
-	// 	log.Fatal(err)
-	// }
-
 	policyEngine := policy.NewEngine(policy.MaxNotificationsPerRun(1))
 
 	toolIdempotency := idempotency.NewToolIdempotency(db)
+	toolRegistryStore := storage.NewToolRegistry(db)
+	toolRegistryService, err := tools.NewRegistrationService(toolRegistryStore)
+	if err != nil {
+		log.Fatalf("tool registry service: %v", err)
+	}
 
-	executor := tools.NewExecutor(registry, toolGateway, policyEngine, toolIdempotency)
+	toolRegistryHandler, err := tools.NewToolRegistryHandler(cfg, toolRegistryService)
+	if err != nil {
+		log.Fatalf("tool registry handler: %v", err)
+	}
+
+	executor := tools.NewExecutor(toolRegistryService, toolGateway, policyEngine, toolIdempotency)
 
 	conversationService, err := conversation.NewConversationService(conversationStore)
 	if err != nil {
@@ -135,7 +82,7 @@ func main() {
 
 	orchestrator := assistant.NewOrchestrator(
 		geminiClient,
-		registry,
+		toolRegistryService,
 		executor,
 		cfg.LLM.Model,
 		cfg.LLM.MaxTokens,
@@ -151,7 +98,6 @@ func main() {
 		log.Fatal(err)
 	}
 
-	// Construct this only after all of its dependencies exist.
 	conversationHandler, err := conversation.NewConversationHandler(
 		cfg,
 		conversationService,
@@ -161,17 +107,6 @@ func main() {
 	)
 	if err != nil {
 		log.Fatalf("conversation handler: %v", err)
-	}
-
-	toolRegistryStore := storage.NewToolRegistry(db)
-	toolRegistryService, err := tools.NewRegistrationService(toolRegistryStore)
-	if err != nil {
-		log.Fatalf("tool registry service: %v", err)
-	}
-
-	toolRegistryHandler, err := tools.NewToolRegistryHandler(cfg, toolRegistryService)
-	if err != nil {
-		log.Fatalf("tool registry handler: %v", err)
 	}
 
 	integrationStore := storage.NewIntegrationOnboardingStore(db)

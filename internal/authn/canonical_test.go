@@ -5,14 +5,15 @@ import (
 	"testing"
 
 	"github.com/mtariq99/dispatchai/internal/enums"
+	"github.com/mtariq99/dispatchai/models"
 )
 
-func validCanonicalRequest() CanonicalRequest {
-	return CanonicalRequest{
+func validCanonicalRequest() models.CanonicalRequest {
+	return models.CanonicalRequest{
 		Method: "POST",
 		Path:   "/v1/integrations/tools",
 		Query:  "",
-		Headers: SignedHeaders{
+		Headers: models.SignedHeaders{
 			ClientID:      "client-123",
 			KeyID:         "key-456",
 			Timestamp:     "1791900000",

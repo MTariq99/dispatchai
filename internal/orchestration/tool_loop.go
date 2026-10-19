@@ -55,17 +55,17 @@ const MaxToolLoopIterations = 10
 
 type ToolLoop struct {
 	llm         llm.Client
-	registry    *tools.Registry
+	toolService *tools.RegistrationService
 	executer    *tools.Executer
 	model       string
 	maxTokens   int
 	temperature float64
 }
 
-func NewToolLoop(llmClient llm.Client, registry *tools.Registry, executer *tools.Executer, model string, maxTokens int, temperature float64) *ToolLoop {
+func NewToolLoop(llmClient llm.Client, toolService *tools.RegistrationService, executer *tools.Executer, model string, maxTokens int, temperature float64) *ToolLoop {
 	return &ToolLoop{
 		llm:         llmClient,
-		registry:    registry,
+		toolService: toolService,
 		executer:    executer,
 		model:       model,
 		maxTokens:   maxTokens,
@@ -77,8 +77,10 @@ func (tl *ToolLoop) Run(ctx context.Context, conv *conversation.Conversation, ex
 	callCounts := make(map[string]int)
 
 	for i := 0; i < MaxToolLoopIterations; i++ {
-		req := BuildRequest(conv, tl.registry, tl.model, tl.maxTokens, tl.temperature)
-
+		req, err := tl.BuildRequest(conv, execCtx.IntegrationID)
+		if err != nil {
+			return "", err
+		}
 		resp, err := tl.llm.Generate(ctx, *req)
 		if err != nil {
 			return "", fmt.Errorf("llm generate failed: %w", err)

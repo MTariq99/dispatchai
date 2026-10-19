@@ -53,8 +53,6 @@ type enrollmentFixture struct {
 	tokenHash     []byte
 }
 
-// seedEnrollment inserts an integration with the given status and one
-// enrollment token created createdAgo ago that expires in expiresIn.
 func seedEnrollment(t *testing.T, db *sql.DB, status string, createdAgo, expiresIn time.Duration) enrollmentFixture {
 	t.Helper()
 	ctx := context.Background()

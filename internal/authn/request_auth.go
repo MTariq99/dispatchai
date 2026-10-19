@@ -61,7 +61,7 @@ func NewRequestVerifier(keys KeyLookup, nonces NonceStore, cfg VerifierConfig) (
 }
 
 type parsedRequest struct {
-	headers   SignedHeaders
+	headers   models.SignedHeaders
 	signature string
 	unix      int64
 }

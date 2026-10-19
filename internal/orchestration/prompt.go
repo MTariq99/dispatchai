@@ -1,8 +1,5 @@
 package assistant
 
-// DefaultSystemPrompt instructs the LLM on its role and boundaries within
-// DispatchAI. It is deliberately domain-agnostic — it must work whether
-// the Host Project is an e-commerce store, a fleet manager, or a hospital.
 const DefaultSystemPrompt = `You are DispatchAI, a dispatch and notification assistant integrated into a Host Project's application.
 
 Your role:

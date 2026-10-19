@@ -13,6 +13,7 @@ import (
 	mpg "github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
 
+	errs "github.com/mtariq99/dispatchai/internal/errors"
 	"github.com/mtariq99/dispatchai/models"
 	"go.uber.org/zap"
 
@@ -36,16 +37,16 @@ func InitDB(cfg *models.Config, logger *zap.Logger) (*sql.DB, error) {
 	}
 
 	if dsn == "" {
-		return nil, fmt.Errorf("database DSN or URL is required")
+		return nil, errs.ErrDatabaseDSNRequired
 	}
 
 	if err := ensureDatabaseExists(dsn, logger); err != nil {
-		return nil, fmt.Errorf("ensure database exists: %w", err)
+		return nil, errs.Wrapf(errs.ErrEnsureDatabaseExists, err)
 	}
 
 	db, err := sql.Open(driverName, dsn)
 	if err != nil {
-		return nil, fmt.Errorf("open postgres connection: %w", err)
+		return nil, errs.Wrapf(errs.ErrOpenPostgresConnection, err)
 	}
 
 	setConnectionPoolConfig(db, cfg, logger)
@@ -55,14 +56,14 @@ func InitDB(cfg *models.Config, logger *zap.Logger) (*sql.DB, error) {
 
 	if err := db.PingContext(ctx); err != nil {
 		_ = db.Close()
-		return nil, fmt.Errorf("ping postgres: %w", err)
+		return nil, errs.Wrapf(errs.ErrPingPostgres, err)
 	}
 
 	logger.Info("postgres connection established")
 	if cfg.Database.MigrationPath != "" {
 		if err := RunMigrations(db, cfg.Database.MigrationPath, logger); err != nil {
 			_ = db.Close()
-			return nil, fmt.Errorf("failed to run migrations: %w", err)
+			return nil, errs.Wrapf(errs.ErrRunMigrations, err)
 		}
 	}
 	return db, nil
@@ -80,16 +81,16 @@ func RunMigrations(db *sql.DB, migrationPath string, logger *zap.Logger) error {
 
 	driver, err := mpg.WithInstance(db, &mpg.Config{})
 	if err != nil {
-		return fmt.Errorf("unable to create migration driver: %w", err)
+		return errs.Wrapf(errs.ErrCreateMigrationDriver, err)
 	}
 
 	m, err := migrate.NewWithDatabaseInstance(fmt.Sprintf("file://%s", migrationPath), "postgres", driver)
 	if err != nil {
-		return fmt.Errorf("failed to create migration instance: %w", err)
+		return errs.Wrapf(errs.ErrCreateMigrationInstance, err)
 	}
 
 	if err := m.Up(); err != nil && !errors.Is(err, migrate.ErrNoChange) {
-		return fmt.Errorf("migration failed: %w", err)
+		return errs.Wrapf(errs.ErrRunMigrations, err)
 	}
 
 	if errors.Is(err, migrate.ErrNoChange) {
@@ -133,21 +134,21 @@ func setConnectionPoolConfig(db *sql.DB, cfg *models.Config, logger *zap.Logger)
 func ensureDatabaseExists(dsn string, logger *zap.Logger) error {
 	dbName, err := databaseNameFromDSN(dsn)
 	if err != nil {
-		return errors.Wrap(err, "failed to parse database name from DSN")
+		return errs.Wrapf(errs.ErrParseDatabaseName, err)
 	}
 
 	if dbName == "" {
-		return errors.New("database name is empty in DSN")
+		return errs.ErrDatabaseNameEmpty
 	}
 
 	defaultDSN, err := replaceDatabaseInDSN(dsn, defaultDatabase)
 	if err != nil {
-		return errors.Wrap(err, "failed to create default database DSN")
+		return errs.Wrapf(errs.ErrCreateDefaultDatabaseDSN, err)
 	}
 
 	db, err := sql.Open(driverName, defaultDSN)
 	if err != nil {
-		return errors.Wrap(err, "failed to connect to default postgres database")
+		return errs.Wrapf(errs.ErrConnectDefaultPostgres, err)
 	}
 	defer db.Close()
 
@@ -155,14 +156,14 @@ func ensureDatabaseExists(dsn string, logger *zap.Logger) error {
 	defer cancel()
 
 	if err := db.PingContext(ctx); err != nil {
-		return errors.Wrap(err, "failed to ping default postgres database")
+		return errs.Wrapf(errs.ErrPingDefaultPostgres, err)
 	}
 
 	var exists bool
 	query := "SELECT EXISTS(SELECT 1 FROM pg_database WHERE datname = $1)"
 	err = db.QueryRowContext(ctx, query, dbName).Scan(&exists)
 	if err != nil {
-		return errors.Wrap(err, "failed to check if database exists")
+		return errs.Wrapf(errs.ErrCheckDatabaseExists, err)
 	}
 
 	if exists {
@@ -175,7 +176,7 @@ func ensureDatabaseExists(dsn string, logger *zap.Logger) error {
 	createQuery := fmt.Sprintf("CREATE DATABASE %s", quoteIdentifier(dbName))
 	_, err = db.ExecContext(ctx, createQuery)
 	if err != nil {
-		return errors.Wrapf(err, "failed to create database '%s'", dbName)
+		return errs.Wrapf(errs.ErrCreateDatabase, err, dbName)
 	}
 
 	log.Printf("database '%s' created successfully\n", dbName)
@@ -185,13 +186,13 @@ func ensureDatabaseExists(dsn string, logger *zap.Logger) error {
 func databaseNameFromDSN(dsn string) (string, error) {
 	u, err := url.Parse(dsn)
 	if err != nil {
-		return "", fmt.Errorf("failed to parse DSN: %w", err)
+		return "", errs.Wrapf(errs.ErrParseDatabaseName, err)
 	}
 
 	databaseName := strings.TrimPrefix(u.Path, "/")
 
 	if databaseName == "" {
-		return "", fmt.Errorf("database name is missing from DSN")
+		return "", errs.ErrDatabaseNameEmpty
 	}
 
 	return databaseName, nil

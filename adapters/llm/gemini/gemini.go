@@ -73,7 +73,6 @@ func (c *GeminiClient) Generate(ctx context.Context, req models.Request) (*model
 	if err != nil {
 		return nil, err
 	}
-
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, requestURL, bytes.NewReader(body))
 	if err != nil {
 		return nil, fmt.Errorf("create gemini request: %w", err)

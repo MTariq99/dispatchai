@@ -14,15 +14,15 @@ import (
 )
 
 type Executer struct {
-	registry        *Registry
+	toolService     *RegistrationService
 	toolGateWay     project.ToolGateway
 	policyEngine    *policy.Engine
 	IdempotentStore idempotency.ToolIdempotency
 }
 
-func NewExecutor(registry *Registry, gateway project.ToolGateway, policyEngine *policy.Engine, idem idempotency.ToolIdempotency) *Executer {
+func NewExecutor(toolReg *RegistrationService, gateway project.ToolGateway, policyEngine *policy.Engine, idem idempotency.ToolIdempotency) *Executer {
 	return &Executer{
-		registry:        registry,
+		toolService:     toolReg,
 		toolGateWay:     gateway,
 		policyEngine:    policyEngine,
 		IdempotentStore: idem,
@@ -40,7 +40,7 @@ func (e *Executer) Execute(ctx context.Context, call *models.Call, excCtx *model
 			},
 		}
 	}
-	if e.registry == nil || e.toolGateWay == nil || e.policyEngine == nil || e.IdempotentStore == nil {
+	if e.toolService == nil || e.toolGateWay == nil || e.policyEngine == nil || e.IdempotentStore == nil {
 		return &models.Result{
 			Success: false,
 			Error: &models.Error{
@@ -104,16 +104,16 @@ func (e *Executer) Execute(ctx context.Context, call *models.Call, excCtx *model
 		}
 	}
 
-	if !e.registry.Has(call.Name) {
-		return &models.Result{
-			CallID:  call.ID,
-			Success: false,
-			Error: &models.Error{
-				Code:    "UNKNOWN_TOOL",
-				Message: "tool \"" + call.Name + "\" is not available in this request",
-			},
-		}
-	}
+	// if !e.registry.Has(call.Name) {
+	// 	return &models.Result{
+	// 		CallID:  call.ID,
+	// 		Success: false,
+	// 		Error: &models.Error{
+	// 			Code:    "UNKNOWN_TOOL",
+	// 			Message: "tool \"" + call.Name + "\" is not available in this request",
+	// 		},
+	// 	}
+	// }
 
 	result, exists, err := e.IdempotentStore.Get(ctx, excCtx.RunID, call.ID)
 	if err != nil {

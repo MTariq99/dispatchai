@@ -1,0 +1,488 @@
+===== CENTRAL ERROR DEFINITIONS =====
+internal/errors/api.go:3:const (
+internal/errors/authn.go:8:	ErrInvalidRequest   = errors.New("invalid signed request")
+internal/errors/authn.go:9:	ErrInvalidBodyHash  = errors.New("invalid content SHA-256")
+internal/errors/authn.go:10:	ErrInvalidSignature = errors.New("invalid request signature")
+internal/errors/authn.go:11:	ErrInvalidPublicKey = errors.New("invalid ECDSA P-256 public key")
+internal/errors/authn.go:12:	ErrSigKeyNotFound   = errors.New("signing key not found or inactive")
+internal/errors/authn.go:13:	ErrReplayedRequest  = errors.New("request replayed")
+internal/errors/authn.go:14:	ErrStaleTimestamp   = errors.New("request timestamp outside allowed window")
+internal/errors/authn.go:15:	ErrAuthUnavailable  = errors.New("authentication backend unavailable")
+internal/errors/err.go:6:	ErrToolNotFound         = errors.New("tool not found")
+internal/errors/err.go:7:	ErrVersionConflict      = errors.New("tool definition version conflict")
+internal/errors/err.go:8:	ErrIdempotencyConflict  = errors.New("idempotency key reused with different request")
+internal/errors/err.go:9:	ErrIntegrationInactive  = errors.New("integration is not active")
+internal/errors/err.go:10:	ErrToolUnavailable      = errors.New("tool is disabled or deleted")
+internal/errors/err.go:11:	ErrConversationNotFound = errors.New("conversation not found")
+internal/errors/idempotency.go:5:var ErrToolCallConflict = errors.New("tool call ID reused with different tool name or arguments")
+internal/errors/integration.go:6:	ErrInvalidOnboardingRequest = errors.New("invalid integration onboarding request")
+internal/errors/integration.go:7:	ErrInvalidEnrollmentRequest = errors.New("invalid integration enrollment request")
+internal/errors/integration.go:8:	ErrEnrollmentTokenInvalid   = errors.New("enrollment token is invalid, expired, or already used")
+internal/errors/integration.go:9:	ErrIntegrationNotEnrollable = errors.New("integration is not eligible for key enrollment")
+internal/errors/integration.go:10:	ErrKeyIDConflict            = errors.New("key ID already exists for this integration")
+internal/errors/integration.go:11:	ErrIntegrationNotFound      = errors.New("integration not found")
+internal/errors/integration.go:12:	ErrInvalidStatusTransition  = errors.New("invalid integration status transition")
+internal/errors/integration.go:13:	ErrNoActiveKey              = errors.New("integration has no active signing key")
+internal/errors/integration.go:14:	ErrUnknownPermission        = errors.New("unknown permission")
+
+===== LOCAL ERROR DECLARATIONS =====
+internal/errors/authn.go:8:	ErrInvalidRequest   = errors.New("invalid signed request")
+internal/errors/authn.go:9:	ErrInvalidBodyHash  = errors.New("invalid content SHA-256")
+internal/errors/authn.go:10:	ErrInvalidSignature = errors.New("invalid request signature")
+internal/errors/authn.go:11:	ErrInvalidPublicKey = errors.New("invalid ECDSA P-256 public key")
+internal/errors/authn.go:12:	ErrSigKeyNotFound   = errors.New("signing key not found or inactive")
+internal/errors/authn.go:13:	ErrReplayedRequest  = errors.New("request replayed")
+internal/errors/authn.go:14:	ErrStaleTimestamp   = errors.New("request timestamp outside allowed window")
+internal/errors/authn.go:15:	ErrAuthUnavailable  = errors.New("authentication backend unavailable")
+internal/errors/idempotency.go:5:var ErrToolCallConflict = errors.New("tool call ID reused with different tool name or arguments")
+internal/errors/integration.go:6:	ErrInvalidOnboardingRequest = errors.New("invalid integration onboarding request")
+internal/errors/integration.go:7:	ErrInvalidEnrollmentRequest = errors.New("invalid integration enrollment request")
+internal/errors/integration.go:8:	ErrEnrollmentTokenInvalid   = errors.New("enrollment token is invalid, expired, or already used")
+internal/errors/integration.go:9:	ErrIntegrationNotEnrollable = errors.New("integration is not eligible for key enrollment")
+internal/errors/integration.go:10:	ErrKeyIDConflict            = errors.New("key ID already exists for this integration")
+internal/errors/integration.go:11:	ErrIntegrationNotFound      = errors.New("integration not found")
+internal/errors/integration.go:12:	ErrInvalidStatusTransition  = errors.New("invalid integration status transition")
+internal/errors/integration.go:13:	ErrNoActiveKey              = errors.New("integration has no active signing key")
+internal/errors/integration.go:14:	ErrUnknownPermission        = errors.New("unknown permission")
+internal/errors/err.go:6:	ErrToolNotFound         = errors.New("tool not found")
+internal/errors/err.go:7:	ErrVersionConflict      = errors.New("tool definition version conflict")
+internal/errors/err.go:8:	ErrIdempotencyConflict  = errors.New("idempotency key reused with different request")
+internal/errors/err.go:9:	ErrIntegrationInactive  = errors.New("integration is not active")
+internal/errors/err.go:10:	ErrToolUnavailable      = errors.New("tool is disabled or deleted")
+internal/errors/err.go:11:	ErrConversationNotFound = errors.New("conversation not found")
+internal/orchestration/context.go:14:		return nil, errors.New("integration ID is required")
+internal/orchestration/context.go:18:		return nil, errors.New(("Error getting enabled tools list for build request: " + err.Error()))
+internal/tools/registration_service.go:22:		return nil, errors.New("tool repository cannot be nil")
+internal/tools/registration_service.go:36:		return nil, false, errors.New("Idempotency-Key header is required")
+internal/tools/registration_service.go:39:		return nil, false, errors.New("Idempotency-Key must not exceed 255 characters")
+internal/tools/registration_service.go:56:		return errors.New("integration identity is required")
+internal/tools/registration_service.go:64:		return errors.New(
+internal/tools/registration_service.go:69:		return errors.New("tool description is required")
+internal/tools/registration_service.go:72:		return errors.New("tool input schema is required")
+internal/tools/registration_service.go:77:		return errors.New("tool input schema must have type object")
+internal/tools/registration_service.go:89:		return nil, errors.New("integration identity is required")
+internal/tools/registration_service.go:92:		return nil, errors.New("tool ID is required")
+internal/tools/registration_service.go:104:		return nil, errors.New("integration identity is required")
+internal/tools/registration_service.go:107:		return nil, errors.New("tool ID is required")
+internal/tools/registration_service.go:110:		return nil, errors.New("expected version must be positive")
+internal/tools/registration_service.go:125:		return nil, errors.New("integration identity is required")
+internal/tools/registration_service.go:128:		return nil, errors.New("tool ID is required")
+internal/tools/registration_service.go:131:		return nil, errors.New("expected version must be positive")
+internal/tools/registration_service.go:145:		return errors.New("integration identity is required")
+internal/tools/registration_service.go:148:		return errors.New("tool ID is required")
+internal/tools/registration_service.go:151:		return errors.New("expected version must be positive")
+internal/tools/registration_service.go:162:		return nil, errors.New("integration id is required")
+internal/integration/admin_service.go:26:		return nil, errors.New("integration admin store is required")
+internal/integration/admin_service.go:35:		return errors.New("integration admin service is not configured")
+internal/integration/admin_service.go:45:		return nil, errors.New("integration admin service is not configured")
+internal/integration/admin_service.go:52:		return nil, errors.New("integration admin service is not configured")
+internal/integration/admin_service.go:62:		return nil, errors.New("integration admin service is not configured")
+internal/integration/service.go:37:		return nil, errors.New("integration onboarding store is required")
+internal/integration/service.go:40:		return nil, errors.New("integration enrollment store is required")
+internal/integration/service.go:48:			errors.New("integration onboarding service is not configured")
+internal/integration/service.go:97:		return nil, errors.New("integration enrollment service is not configured")
+internal/run/run.go:11:	ErrInvalidIntegrationID = errors.New("integration id is required")
+internal/run/run.go:12:	ErrInvalidUserID        = errors.New("user id is required")
+internal/run/run.go:13:	ErrInvalidConversation  = errors.New("conversation id is required")
+internal/run/run.go:14:	ErrInvalidRequestID     = errors.New("request id is required")
+internal/run/run.go:15:	ErrInvalidTransition    = errors.New("invalid state transition")
+internal/conversation/service.go:24:		return nil, errors.New("conversation store cannot be nil")
+internal/conversation/service.go:34:		return nil, errors.New("integration id is required")
+internal/conversation/service.go:37:		return nil, errors.New("conversation name is required")
+internal/conversation/service.go:49:		return nil, errors.New("missing required fields")
+internal/idempotency/tool.go:163:			return nil, false, errors.New("completed tool execution has no persisted result")
+internal/idempotency/tool.go:175:			return nil, false, errors.New("failed tool execution has incomplete error details")
+internal/idempotency/tool.go:201:		return errors.New("run id is required")
+internal/idempotency/tool.go:204:		return errors.New("call id is required")
+internal/idempotency/tool.go:207:		return errors.New("result is required")
+internal/idempotency/tool.go:237:		return errors.New("tool execution is not pending")
+internal/idempotency/tool.go:245:		return errors.New("run id is required")
+internal/idempotency/tool.go:248:		return errors.New("call id is required")
+internal/idempotency/tool.go:251:		return errors.New("error result is required")
+internal/idempotency/tool.go:286:		return errors.New("tool execution is not pending")
+internal/idempotency/request.go:26:		return nil, errors.New("request idempotency cannot be nil")
+internal/idempotency/request.go:36:		return errors.New("integration id is required")
+internal/idempotency/request.go:39:		return errors.New("idempotency key is required")
+internal/idempotency/request.go:42:		return errors.New("request id is required")
+internal/idempotency/request.go:45:		return errors.New("run id is required")
+internal/idempotency/request.go:48:		return errors.New("response is required")
+internal/idempotency/request.go:56:		return nil, false, errors.New("integration id is required")
+internal/idempotency/request.go:59:		return nil, false, errors.New("idempotency key is required")
+internal/idempotency/request.go:71:		return false, errors.New("integration id is required")
+internal/idempotency/request.go:74:		return false, errors.New("idempotency key is required")
+internal/idempotency/request.go:77:		return false, errors.New("conversation id is required")
+internal/idempotency/request.go:80:		return false, errors.New("request id is required")
+internal/idempotency/request.go:84:		return false, errors.New("request fingerprint is required")
+internal/idempotency/request.go:96:		return errors.New("integration id is required")
+internal/idempotency/request.go:99:		return errors.New("idempotency key is required")
+internal/idempotency/request.go:102:		return errors.New("request id is required")
+internal/idempotency/request.go:105:		return errors.New("run id is required")
+internal/idempotency/request.go:108:		return errors.New("response is required")
+internal/idempotency/request.go:116:		return errors.New("integration id is required")
+internal/idempotency/request.go:120:		return errors.New("idempotency key is required")
+internal/idempotency/request.go:124:		return errors.New("request id is required")
+internal/idempotency/request.go:128:		return errors.New("response is required")
+internal/idempotency/request.go:135:		return nil, false, errors.New("integration id is required")
+internal/idempotency/request.go:139:		return nil, false, errors.New("idempotency key is required")
+internal/authn/request_auth.go:45:		return nil, errors.New("key lookup and nonce store are required")
+adapters/llm/gemini/errors.go:105:		return 0, errors.New("empty retry delay")
+adapters/llm/gemini/gemini.go:115:		return errors.New(
+adapters/llm/gemini/gemini.go:121:		return errors.New(
+adapters/llm/gemini/gemini.go:127:		return errors.New(
+adapters/llm/gemini/gemini.go:133:		return errors.New(
+adapters/llm/gemini/gemini.go:149:		return "", errors.New("gemini generate URL is empty")
+adapters/llm/gemini/gemini.go:168:		return "", errors.New("gemini api key is empty")
+adapters/llm/gemini/request.go:141:			return GeminiContent{}, errors.New(
+adapters/llm/gemini/request.go:159:		return GeminiContent{}, errors.New(
+adapters/llm/gemini/request.go:169:		return GeminiContent{}, errors.New(
+adapters/storage/postgres/conversation.go:21:		return nil, errors.New("database cannot be nil")
+adapters/storage/postgres/integration_onboarding.go:112:		return nil, errors.New("integration database is not configured")
+adapters/storage/postgres/integration_onboarding.go:127:		return errors.New("integration database is not configured")
+adapters/storage/postgres/integration_onboarding.go:216:		return nil, errors.New("client id is required")
+adapters/storage/postgres/integration_onboarding.go:219:		return nil, errors.New("integration id is required")
+adapters/storage/postgres/integration_onboarding.go:222:		return nil, errors.New("granted by is required")
+adapters/storage/postgres/integration_onboarding.go:225:		return nil, errors.New("at least one permission is required")
+adapters/storage/postgres/integration_onboarding.go:233:			return nil, errors.New("permission cannot be empty")
+adapters/storage/postgres/integration_onboarding.go:264:		return nil, errors.New("integration not found for client")
+adapters/storage/postgres/integration_onboarding.go:299:		return nil, errors.New("integration database is not configured")
+adapters/storage/postgres/integration_onboarding.go:330:		return false, errors.New("integration permission database is not configured")
+adapters/storage/postgres/integration_onboarding.go:334:		return false, errors.New("missing required fields")
+adapters/storage/postgres/postgres.go:140:		return errors.New("database name is empty in DSN")
+adapters/storage/postgres/tool_registry.go:56:		return nil, errors.New("tool name cannot be empty")
+adapters/storage/postgres/tool_registry.go:59:		return nil, errors.New("tool description cannot be empty")
+adapters/storage/postgres/tool_registry.go:63:		return nil, errors.New("tool name exceeds 100 characters")
+adapters/storage/postgres/tool_registry.go:66:		return nil, errors.New("tool parameters schema cannot be nil")
+adapters/storage/postgres/tool_registry.go:69:		return nil, errors.New("tool parameters schema must have type object")
+adapters/storage/postgres/tool_registry.go:81:		return nil, false, errors.New("tool registry database is not configured")
+adapters/storage/postgres/tool_registry.go:84:		return nil, false, errors.New("missing required fields")
+adapters/storage/postgres/tool_registry.go:173:		return nil, errors.New("tool registry database is not configured")
+adapters/storage/postgres/tool_registry.go:222:		return nil, errors.New("tool registry database is not configured")
+adapters/storage/postgres/tool_registry.go:250:		return nil, nil, errors.New("tool registry database is not configured")
+adapters/storage/postgres/tool_registry.go:324:			return nil, fmt.Errorf("mutate tool definition: %w", errors.New("tool name already exists in this integration"))
+adapters/storage/postgres/idempotency.go:26:		return errors.New("tenant id is required")
+adapters/storage/postgres/idempotency.go:29:		return errors.New("idempotency key is required")
+adapters/storage/postgres/idempotency.go:32:		return errors.New("request id is required")
+adapters/storage/postgres/idempotency.go:35:		return errors.New("run id is required")
+adapters/storage/postgres/idempotency.go:38:		return errors.New("response is required")
+adapters/storage/postgres/idempotency.go:69:		return errors.New("request idempotency record is not pending")
+adapters/storage/postgres/idempotency.go:77:		return nil, false, errors.New("integration id is required")
+adapters/storage/postgres/idempotency.go:80:		return nil, false, errors.New("idempotency key is required")
+adapters/storage/postgres/idempotency.go:119:		return false, errors.New("integration id is required")
+adapters/storage/postgres/idempotency.go:122:		return false, errors.New("idempotency key is required")
+adapters/storage/postgres/idempotency.go:125:		return false, errors.New("conversation id is required")
+adapters/storage/postgres/idempotency.go:128:		return false, errors.New("request id is required")
+adapters/storage/postgres/idempotency.go:132:		return false, errors.New("request fingerprint is required")
+adapters/storage/postgres/idempotency.go:164:		return errors.New("integration id is required")
+adapters/storage/postgres/idempotency.go:167:		return errors.New("idempotency key is required")
+adapters/storage/postgres/idempotency.go:170:		return errors.New("request id is required")
+adapters/storage/postgres/idempotency.go:173:		return errors.New("run id is required")
+adapters/storage/postgres/idempotency.go:176:		return errors.New("response is required")
+adapters/storage/postgres/idempotency.go:207:		return errors.New("request idempotency record is not pending")
+adapters/storage/postgres/idempotency.go:215:		return errors.New("integration id is required")
+adapters/storage/postgres/idempotency.go:219:		return errors.New("idempotency key is required")
+adapters/storage/postgres/idempotency.go:223:		return errors.New("request id is required")
+adapters/storage/postgres/idempotency.go:227:		return errors.New("response is required")
+adapters/storage/postgres/idempotency.go:258:		return errors.New("request idempotency record is not pending before run")
+adapters/storage/postgres/idempotency.go:266:		return nil, false, errors.New("integration id is required")
+adapters/storage/postgres/idempotency.go:270:		return nil, false, errors.New("idempotency key is required")
+adapters/storage/postgres/integration_signed_auth.go:32:		return nil, errors.New("signed auth database is not configured")
+adapters/storage/postgres/integration_signed_auth.go:59:		return false, errors.New("signed auth database is not configured")
+adapters/storage/postgres/integration_signed_auth.go:77:		return 0, errors.New("signed auth database is not configured")
+adapters/storage/postgres/integration_enrollment.go:37:		return nil, errors.New("integration enrollment database is not configured")
+examples/ecommerce/http/idempotency.go:16:	errInvalidIdempotencyRequest = errors.New("invalid idempotency request")
+examples/ecommerce/http/idempotency.go:17:	errIdempotencyKeyConflict    = errors.New("idempotency key reused with different request")
+examples/ecommerce/http/idempotency.go:94:				executionErr = errors.New("tool returned a nil response")
+examples/ecommerce/http/idempotency.go:157:		return nil, errors.New("cannot clone a nil tool response")
+
+===== DATABASE ERROR TRANSLATION CANDIDATES =====
+adapters/storage/postgres/conversation.go:42:	if _, err := conn.ExecContext(
+adapters/storage/postgres/conversation.go:52:		_, unlockErr := conn.ExecContext(
+adapters/storage/postgres/conversation.go:91:	err := s.db.QueryRowContext(ctx, IsOwnedConvQuery, conversationID, integrationID).Scan(&owned)
+adapters/storage/postgres/conversation.go:104:	rows, err := s.db.QueryContext(ctx, convMsgsQuery, conversationID)
+adapters/storage/postgres/conversation.go:120:		if err := rows.Scan(
+adapters/storage/postgres/conversation.go:181:	err = tx.QueryRowContext(
+adapters/storage/postgres/conversation.go:188:	).Scan(&ownerIntegrationID)
+adapters/storage/postgres/conversation.go:190:		if errors.Is(err, sql.ErrNoRows) {
+adapters/storage/postgres/conversation.go:205:	_, err = tx.ExecContext(
+adapters/storage/postgres/conversation.go:233:		_, err = tx.ExecContext(ctx, insertConvMsgQuery, conversationID, i, msg.Role, msg.Content, toolCallsJSON, msg.ToolCallID)
+adapters/storage/postgres/conversation.go:243:	_, err = tx.ExecContext(ctx, updateConvQuery, conversationID, integrationID)
+adapters/storage/postgres/conversation.go:283:	err := s.db.QueryRowContext(
+adapters/storage/postgres/conversation.go:289:	).Scan(
+adapters/storage/postgres/conversation.go:340:	err := s.db.QueryRowContext(
+adapters/storage/postgres/conversation.go:345:	).Scan(
+adapters/storage/postgres/conversation.go:355:		if errors.Is(err, sql.ErrNoRows) {
+adapters/storage/postgres/integration_onboarding.go:28:	err := row.Scan(
+adapters/storage/postgres/integration_onboarding.go:72:	err = tx.QueryRowContext(
+adapters/storage/postgres/integration_onboarding.go:78:	).Scan(&integrationID)
+adapters/storage/postgres/integration_onboarding.go:92:	_, err = tx.ExecContext(
+adapters/storage/postgres/integration_onboarding.go:118:	rec, err := ScanHostIntegration(i.db.QueryRowContext(ctx, q, clientID))
+adapters/storage/postgres/integration_onboarding.go:119:	if errors.Is(err, sql.ErrNoRows) {
+adapters/storage/postgres/integration_onboarding.go:140:	err = tx.QueryRowContext(ctx, `
+adapters/storage/postgres/integration_onboarding.go:142:		WHERE integration_key = $1 FOR UPDATE`, clientID).Scan(&integrationID, &current)
+adapters/storage/postgres/integration_onboarding.go:143:	if errors.Is(err, sql.ErrNoRows) {
+adapters/storage/postgres/integration_onboarding.go:156:		if err := tx.QueryRowContext(ctx, `
+adapters/storage/postgres/integration_onboarding.go:161:				  AND (expires_at IS NULL OR expires_at > NOW()))`, integrationID).Scan(&usable); err != nil {
+adapters/storage/postgres/integration_onboarding.go:169:	if _, err := tx.ExecContext(ctx, `
+adapters/storage/postgres/integration_onboarding.go:186:	rows, err := i.db.QueryContext(ctx, selectQuery)
+adapters/storage/postgres/integration_onboarding.go:197:		if err := rows.Scan(
+adapters/storage/postgres/integration_onboarding.go:259:	err = tx.QueryRowContext(ctx, SelectHostIntegrationQuery, integrationID, clientID).Scan(&exists)
+adapters/storage/postgres/integration_onboarding.go:278:		if _, err := tx.ExecContext(ctx, insertQuery, integrationID, permission, grantedBy); err != nil {
+adapters/storage/postgres/integration_onboarding.go:279:			var pqErr *pq.Error
+adapters/storage/postgres/integration_onboarding.go:280:			if errors.As(err, &pqErr) && pqErr.Code == "23503" {
+adapters/storage/postgres/integration_onboarding.go:302:	if err := i.db.QueryRowContext(ctx,
+adapters/storage/postgres/integration_onboarding.go:303:		`SELECT EXISTS (SELECT 1 FROM host_integrations WHERE integration_key = $1)`, clientID).Scan(&exists); err != nil {
+adapters/storage/postgres/integration_onboarding.go:309:	rows, err := i.db.QueryContext(ctx, `
+adapters/storage/postgres/integration_onboarding.go:320:		if err := rows.Scan(&p); err != nil {
+adapters/storage/postgres/integration_onboarding.go:344:	if err := i.db.QueryRowContext(
+adapters/storage/postgres/integration_onboarding.go:346:	).Scan(&granted); err != nil {
+adapters/storage/postgres/postgres.go:163:	err = db.QueryRowContext(ctx, query, dbName).Scan(&exists)
+adapters/storage/postgres/postgres.go:176:	_, err = db.ExecContext(ctx, createQuery)
+adapters/storage/postgres/tool_registry.go:33:	err := row.Scan(
+adapters/storage/postgres/tool_registry.go:103:	err = tx.QueryRowContext(ctx, selectQuery, integrationID, idempotencyKey).Scan(&oldHash, &oldToolID)
+adapters/storage/postgres/tool_registry.go:113:		sqlRow := tx.QueryRowContext(ctx, getRecordQuery, oldToolID, integrationID)
+adapters/storage/postgres/tool_registry.go:123:	if !errors.Is(err, sql.ErrNoRows) {
+adapters/storage/postgres/tool_registry.go:131:	err = tx.QueryRowContext(ctx, integrationStatusQuery, integrationID).Scan(&integrationStatus)
+adapters/storage/postgres/tool_registry.go:132:	if errors.Is(err, sql.ErrNoRows) {
+adapters/storage/postgres/tool_registry.go:146:	sqlInsertToolRow := tx.QueryRowContext(ctx, toolInsertQuery, integrationID, defination.Name, defination.Description, schema)
+adapters/storage/postgres/tool_registry.go:160:	_, err = tx.ExecContext(ctx, InsertIdempotencyQuery, integrationID, idempotencyKey, requestHash, record.ID)
+adapters/storage/postgres/tool_registry.go:179:	toolRow := tr.db.QueryRowContext(ctx, toolSlctQuery, toolID, integrationID)
+adapters/storage/postgres/tool_registry.go:181:	if errors.Is(err, sql.ErrNoRows) {
+adapters/storage/postgres/tool_registry.go:200:	rows, err := r.db.QueryContext(ctx, enabledSlctQuery, integrationID)
+adapters/storage/postgres/tool_registry.go:234:	SqlRow := r.db.QueryRowContext(ctx, selectQuery, integrationID, toolID)
+adapters/storage/postgres/tool_registry.go:236:	if errors.Is(err, sql.ErrNoRows) {
+adapters/storage/postgres/tool_registry.go:268:	lockedSqlRow := tx.QueryRowContext(ctx, lockedSelectQuery, toolID, integrationID)
+adapters/storage/postgres/tool_registry.go:270:	if errors.Is(err, sql.ErrNoRows) {
+adapters/storage/postgres/tool_registry.go:319:		err := tx.QueryRowContext(ctx, selectQuery, integrationID, definition.Name, toolID).Scan(&exists)
+adapters/storage/postgres/tool_registry.go:356:	sqlRow := tx.QueryRowContext(ctx, updateQuery, toolID, integrationID, current.Version, enabled)
+adapters/storage/postgres/tool_registry.go:378:	updateSqlRow := tx.QueryRowContext(ctx, updateQuery, toolID, integrationID, current.Version)
+adapters/storage/postgres/tool_registry.go:394:	sqlRow := tx.QueryRowContext(ctx, query, toolID, integrationID, definition.Name, definition.Description, schema, nextVersion)
+adapters/storage/postgres/tool_registry.go:409:	_, err = tx.ExecContext(ctx, insertQ, record.ID, record.Version, record.Definition.Name, record.Definition.Description,
+adapters/storage/postgres/run_store.go:54:	_, err := s.db.ExecContext(
+adapters/storage/postgres/run_store.go:162:	result, err := s.db.ExecContext(
+adapters/storage/postgres/run_store.go:189:		return sql.ErrNoRows
+adapters/storage/postgres/run_store.go:208:	err := s.db.QueryRowContext(ctx, query, id).Scan(
+adapters/storage/postgres/run_store.go:228:		if errors.Is(err, sql.ErrNoRows) {
+adapters/storage/postgres/run_store.go:229:			return nil, sql.ErrNoRows
+adapters/storage/postgres/idempotency.go:58:	result, err := s.db.ExecContext(ctx, query, integrationID, key, requestID, runID, responseJSON)
+adapters/storage/postgres/idempotency.go:93:	err := s.db.QueryRowContext(
+adapters/storage/postgres/idempotency.go:98:	).Scan(&responseJSON)
+adapters/storage/postgres/idempotency.go:100:	if errors.Is(err, sql.ErrNoRows) {
+adapters/storage/postgres/idempotency.go:149:	result, err := s.db.ExecContext(ctx, query, key, integrationID, conversationID, requestID, fingerprint)
+adapters/storage/postgres/idempotency.go:196:	result, err := s.db.ExecContext(ctx, query, integrationID, key, requestID, runID, responseJSON)
+adapters/storage/postgres/idempotency.go:247:	result, err := s.db.ExecContext(ctx, query, integrationID, key, requestID, responseJSON)
+adapters/storage/postgres/idempotency.go:295:	err := s.db.QueryRowContext(ctx, query, integrationID, key).Scan(
+adapters/storage/postgres/idempotency.go:304:	if errors.Is(err, sql.ErrNoRows) {
+adapters/storage/postgres/integration_signed_auth.go:47:	err := s.db.QueryRowContext(ctx, q, clientID, keyID).Scan(&rec.IntegrationID, &rec.PublicKey)
+adapters/storage/postgres/integration_signed_auth.go:48:	if errors.Is(err, sql.ErrNoRows) {
+adapters/storage/postgres/integration_signed_auth.go:61:	res, err := s.db.ExecContext(ctx, `
+adapters/storage/postgres/integration_signed_auth.go:79:	res, err := s.db.ExecContext(ctx, `DELETE FROM integration_request_nonces WHERE expires_at < NOW()`)
+adapters/storage/postgres/integration_enrollment.go:21:	pgUniqueViolation  = "23505"
+adapters/storage/postgres/integration_enrollment.go:64:	err = tx.QueryRowContext(ctx, UpdateEnrollmentQuery, p.TokenHash).Scan(&integrationID)
+adapters/storage/postgres/integration_enrollment.go:65:	if errors.Is(err, sql.ErrNoRows) {
+adapters/storage/postgres/integration_enrollment.go:79:	err = tx.QueryRowContext(ctx, selectIntegQuery, integrationID).Scan(&clientID, &status)
+adapters/storage/postgres/integration_enrollment.go:90:	_, err = tx.ExecContext(ctx, insertIntegQuery, integrationID, p.KeyID, enums.SignatureAlgorithm, p.PublicKey)
+adapters/storage/postgres/integration_enrollment.go:92:		var pqErr *pq.Error
+internal/idempotency/tool.go:57:	result, err := s.db.ExecContext(
+internal/idempotency/tool.go:88:	err = s.db.QueryRowContext(
+internal/idempotency/tool.go:93:	).Scan(&existingToolName, &existingArguments)
+internal/idempotency/tool.go:146:	err := s.db.QueryRowContext(ctx, query, runID, callID).Scan(
+internal/idempotency/tool.go:153:	if errors.Is(err, sql.ErrNoRows) {
+internal/idempotency/tool.go:226:	res, err := s.db.ExecContext(ctx, query, runID, callID, resultJSON)
+internal/idempotency/tool.go:267:	res, err := s.db.ExecContext(
+
+===== SERVICE ERROR WRAPPING CANDIDATES =====
+internal/integration/admin_service.go:35:		return errors.New("integration admin service is not configured")
+internal/integration/service.go:69:			fmt.Errorf("generate integration client ID: %w", err)
+internal/integration/service.go:75:			fmt.Errorf("generate enrollment token: %w", err)
+internal/integration/service.go:84:			fmt.Errorf("persist pending integration and enrollment token: %w", err)
+internal/tools/registry.go:23:// 		return fmt.Errorf("cannot register nil tool")
+internal/tools/registry.go:27:// 		return fmt.Errorf("tool name cannot be empty")
+internal/tools/registry.go:32:// 		return fmt.Errorf("tool %q is already registered", name)
+internal/tools/loader.go:5:// 		return nil, fmt.Errorf("tool repository is required")
+internal/tools/loader.go:8:// 		return nil, fmt.Errorf("integration ID is required")
+internal/tools/loader.go:13:// 		return nil, fmt.Errorf("load tools for integration %q: %w", integrationID, err)
+internal/tools/loader.go:20:// 			return nil, fmt.Errorf(
+internal/tools/loader.go:30:// 			return nil, fmt.Errorf(
+internal/tools/handler.go:20:		return nil, fmt.Errorf("config is empty")
+internal/tools/handler.go:24:		return nil, fmt.Errorf("tool registration is nil")
+internal/tools/registration_service.go:43:		return nil, false, fmt.Errorf("encode tool definition: %w", err)
+internal/tools/registration_service.go:49:		return nil, false, fmt.Errorf("register tool: %w", err)
+internal/tools/registration_service.go:56:		return errors.New("integration identity is required")
+internal/tools/registration_service.go:64:		return errors.New(
+internal/tools/registration_service.go:69:		return errors.New("tool description is required")
+internal/tools/registration_service.go:72:		return errors.New("tool input schema is required")
+internal/tools/registration_service.go:77:		return errors.New("tool input schema must have type object")
+internal/tools/registration_service.go:81:		return fmt.Errorf("invalid tool input schema: %w", err)
+internal/tools/registration_service.go:97:		return nil, fmt.Errorf("get tool: %w", err)
+internal/tools/registration_service.go:118:		return nil, fmt.Errorf("update tool: %w", err)
+internal/tools/registration_service.go:138:		return nil, fmt.Errorf("change tool status: %w", err)
+internal/tools/registration_service.go:145:		return errors.New("integration identity is required")
+internal/tools/registration_service.go:148:		return errors.New("tool ID is required")
+internal/tools/registration_service.go:151:		return errors.New("expected version must be positive")
+internal/tools/registration_service.go:155:		return fmt.Errorf("delete tool: %w", err)
+internal/conversation/handler.go:36:		return nil, fmt.Errorf("config is empty")
+internal/conversation/handler.go:40:		return nil, fmt.Errorf("conversation service  is nil")
+internal/conversation/handler.go:44:		return nil, fmt.Errorf("assistant is nil")
+internal/conversation/handler.go:48:		return nil, fmt.Errorf("run service is nil")
+internal/conversation/handler.go:52:		return nil, fmt.Errorf("request idempotency service is nil")
+internal/orchestration/orchestrator.go:29:		return "", fmt.Errorf("conversation store is not configured")
+internal/orchestration/orchestrator.go:32:		return "", fmt.Errorf("execution context is required")
+internal/orchestration/orchestrator.go:37:		return "", fmt.Errorf("lock conversation: %w", err)
+internal/orchestration/orchestrator.go:42:			retErr = fmt.Errorf("release conversation lock: %w", unlockErr)
+internal/orchestration/orchestrator.go:48:		return "", fmt.Errorf("load conversation Error : %w", err)
+internal/orchestration/tool_loop.go:86:			return "", fmt.Errorf("llm generate failed: %w", err)
+internal/orchestration/tool_loop.go:89:			return "", fmt.Errorf("llm generate returned a nil response")
+internal/orchestration/tool_loop.go:120:	return "", fmt.Errorf("tool loop exceeded max iterations (%d)", MaxToolLoopIterations)
+internal/orchestration/tool_loop.go:125:		return models.Call{}, fmt.Errorf("tool call name cannot be empty")
+internal/orchestration/tool_loop.go:130:		return models.Call{}, fmt.Errorf("marshal tool call args: %w", err)
+internal/idempotency/tool.go:34:		return false, fmt.Errorf("run ID cannot be nil")
+internal/idempotency/tool.go:37:		return false, fmt.Errorf("call ID cannot be empty")
+internal/idempotency/tool.go:40:		return false, fmt.Errorf("tool name cannot be empty")
+internal/idempotency/tool.go:43:		return false, fmt.Errorf("tool arguments cannot be empty")
+internal/idempotency/tool.go:46:		return false, fmt.Errorf("tool arguments must be valid JSON")
+internal/idempotency/tool.go:67:		return false, fmt.Errorf("reserve tool execution: %w", err)
+internal/idempotency/tool.go:72:		return false, fmt.Errorf("check tool execution reservation: %w", err)
+internal/idempotency/tool.go:95:		return false, fmt.Errorf("inspect existing tool execution: %w", err)
+internal/idempotency/tool.go:102:		return false, fmt.Errorf("decode existing tool arguments: %w", err)
+internal/idempotency/tool.go:105:		return false, fmt.Errorf("decode requested tool arguments: %w", err)
+internal/idempotency/tool.go:110:		return false, fmt.Errorf("canonicalize existing tool arguments: %w", err)
+internal/idempotency/tool.go:114:		return false, fmt.Errorf("canonicalize requested tool arguments: %w", err)
+internal/idempotency/tool.go:126:		return nil, false, fmt.Errorf("run ID cannot be nil")
+internal/idempotency/tool.go:129:		return nil, false, fmt.Errorf("call ID cannot be empty")
+internal/idempotency/tool.go:157:		return nil, false, fmt.Errorf("get tool execution: %w", err)
+internal/idempotency/tool.go:168:			return nil, false, fmt.Errorf("unmarshal tool execution result: %w", err)
+internal/idempotency/tool.go:192:		return nil, false, fmt.Errorf(
+internal/idempotency/tool.go:201:		return errors.New("run id is required")
+internal/idempotency/tool.go:204:		return errors.New("call id is required")
+internal/idempotency/tool.go:207:		return errors.New("result is required")
+internal/idempotency/tool.go:212:		return fmt.Errorf("marshal tool result: %w", err)
+internal/idempotency/tool.go:228:		return fmt.Errorf("complete tool execution: %w", err)
+internal/idempotency/tool.go:233:		return fmt.Errorf("get affected rows: %w", err)
+internal/idempotency/tool.go:237:		return errors.New("tool execution is not pending")
+internal/idempotency/tool.go:245:		return errors.New("run id is required")
+internal/idempotency/tool.go:248:		return errors.New("call id is required")
+internal/idempotency/tool.go:251:		return errors.New("error result is required")
+internal/idempotency/tool.go:277:		return fmt.Errorf("fail tool execution: %w", err)
+internal/idempotency/tool.go:282:		return fmt.Errorf("get affected rows: %w", err)
+internal/idempotency/tool.go:286:		return errors.New("tool execution is not pending")
+internal/idempotency/request.go:36:		return errors.New("integration id is required")
+internal/idempotency/request.go:39:		return errors.New("idempotency key is required")
+internal/idempotency/request.go:42:		return errors.New("request id is required")
+internal/idempotency/request.go:45:		return errors.New("run id is required")
+internal/idempotency/request.go:48:		return errors.New("response is required")
+internal/idempotency/request.go:96:		return errors.New("integration id is required")
+internal/idempotency/request.go:99:		return errors.New("idempotency key is required")
+internal/idempotency/request.go:102:		return errors.New("request id is required")
+internal/idempotency/request.go:105:		return errors.New("run id is required")
+internal/idempotency/request.go:108:		return errors.New("response is required")
+internal/idempotency/request.go:116:		return errors.New("integration id is required")
+internal/idempotency/request.go:120:		return errors.New("idempotency key is required")
+internal/idempotency/request.go:124:		return errors.New("request id is required")
+internal/idempotency/request.go:128:		return errors.New("response is required")
+
+===== HANDLER ERROR RESPONSE CANDIDATES =====
+internal/conversation/handler.go:66:		c.JSON(http.StatusUnauthorized, gin.H{"error": "integration authentication required"})
+internal/conversation/handler.go:71:		c.JSON(http.StatusUnauthorized, gin.H{"error": "integration id is required"})
+internal/conversation/handler.go:76:		c.JSON(http.StatusBadRequest, gin.H{"error": err})
+internal/conversation/handler.go:81:		c.JSON(http.StatusBadRequest, gin.H{"error": err})
+internal/conversation/handler.go:85:		c.JSON(http.StatusBadRequest, gin.H{"error": "conversation name is required"})
+internal/conversation/handler.go:91:		c.JSON(http.StatusInternalServerError, gin.H{"error": err})
+internal/conversation/handler.go:95:	c.JSON(http.StatusCreated, resp)
+internal/conversation/handler.go:101:		c.JSON(http.StatusUnauthorized, gin.H{"error": "integration authentication required"})
+internal/conversation/handler.go:106:		c.JSON(http.StatusBadRequest, gin.H{"error": err})
+internal/conversation/handler.go:113:		c.JSON(http.StatusBadRequest, gin.H{"error": "conversation ID is required"})
+internal/conversation/handler.go:118:		c.JSON(http.StatusBadRequest, gin.H{"error": err})
+internal/conversation/handler.go:124:		c.JSON(http.StatusInternalServerError, gin.H{"error": err})
+internal/conversation/handler.go:128:	c.JSON(http.StatusOK, converstion)
+internal/conversation/handler.go:134:		c.JSON(http.StatusUnauthorized, models.ErrorResponse{Error: "integration authentication required"})
+internal/conversation/handler.go:140:		c.JSON(http.StatusBadRequest, models.ErrorResponse{Error: err.Error()})
+internal/conversation/handler.go:148:		c.JSON(http.StatusBadRequest, models.ErrorResponse{Error: "invalid request body"})
+internal/conversation/handler.go:153:		c.JSON(http.StatusBadRequest, models.ErrorResponse{Error: "invalid request body"})
+internal/conversation/handler.go:158:		c.JSON(http.StatusBadRequest, models.ErrorResponse{Error: "invalid request body"})
+internal/conversation/handler.go:164:		c.JSON(http.StatusBadRequest, models.ErrorResponse{Error: "valid Idempotency-Key header is required"})
+internal/conversation/handler.go:171:		c.JSON(http.StatusInternalServerError, models.ErrorResponse{Error: "failed to fingerprint request"})
+internal/conversation/handler.go:175:		c.JSON(http.StatusBadRequest, models.ErrorResponse{Error: "failed to fingerprint request"})
+internal/conversation/handler.go:180:			c.JSON(http.StatusNotFound, models.ErrorResponse{Error: err.Error()})
+internal/conversation/handler.go:183:			c.JSON(http.StatusInternalServerError, models.ErrorResponse{Error: err.Error()})
+internal/conversation/handler.go:192:		c.JSON(http.StatusInternalServerError, models.ErrorResponse{
+internal/conversation/handler.go:200:			c.JSON(http.StatusConflict, models.ErrorResponse{
+internal/conversation/handler.go:208:				c.JSON(http.StatusInternalServerError, models.ErrorResponse{
+internal/conversation/handler.go:214:			c.JSON(http.StatusOK, state.Response)
+internal/conversation/handler.go:219:				c.JSON(http.StatusInternalServerError, models.ErrorResponse{
+internal/conversation/handler.go:225:			c.JSON(http.StatusInternalServerError, state.Response)
+internal/conversation/handler.go:241:					c.JSON(http.StatusInternalServerError, models.ErrorResponse{
+internal/conversation/handler.go:247:				c.JSON(http.StatusOK, response)
+internal/conversation/handler.go:252:				c.JSON(http.StatusInternalServerError, models.ErrorResponse{
+internal/conversation/handler.go:268:			c.JSON(http.StatusConflict, response)
+internal/conversation/handler.go:272:			c.JSON(http.StatusInternalServerError, models.ErrorResponse{
+internal/conversation/handler.go:281:		c.JSON(http.StatusInternalServerError, models.ErrorResponse{
+internal/conversation/handler.go:287:		c.JSON(http.StatusConflict, models.ErrorResponse{
+internal/conversation/handler.go:302:			c.JSON(http.StatusInternalServerError, models.ErrorResponse{
+internal/conversation/handler.go:308:		c.JSON(http.StatusInternalServerError, failedResponse)
+internal/conversation/handler.go:316:			c.JSON(http.StatusInternalServerError, models.ErrorResponse{
+internal/conversation/handler.go:330:			c.JSON(http.StatusInternalServerError, models.ErrorResponse{
+internal/conversation/handler.go:336:		c.JSON(http.StatusInternalServerError, failedResponse)
+internal/conversation/handler.go:361:			c.JSON(http.StatusInternalServerError, models.ErrorResponse{
+internal/conversation/handler.go:368:			c.JSON(http.StatusInternalServerError, models.ErrorResponse{
+internal/conversation/handler.go:374:		c.JSON(http.StatusInternalServerError, failedResponse)
+internal/conversation/handler.go:382:		c.JSON(http.StatusInternalServerError, models.ErrorResponse{
+internal/conversation/handler.go:397:		c.JSON(http.StatusInternalServerError, models.ErrorResponse{
+internal/conversation/handler.go:402:	c.JSON(http.StatusOK, response)
+internal/integration/handler.go:26:		c.AbortWithStatusJSON(http.StatusServiceUnavailable, gin.H{
+internal/integration/handler.go:37:		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "invalid onboarding request"})
+internal/integration/handler.go:43:		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "request must contain exactly one JSON object"})
+internal/integration/handler.go:50:			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "invalid onboarding request"})
+internal/integration/handler.go:53:		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "could not create integration"})
+internal/integration/handler.go:57:	c.JSON(http.StatusCreated, response)
+internal/integration/handler.go:62:		c.AbortWithStatusJSON(http.StatusServiceUnavailable, gin.H{
+internal/integration/handler.go:73:		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "invalid enrollment request"})
+internal/integration/handler.go:79:		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "invalid enrollment request"})
+internal/integration/handler.go:88:			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "invalid enrollment request"})
+internal/integration/handler.go:92:			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
+internal/integration/handler.go:97:			c.AbortWithStatusJSON(http.StatusConflict, gin.H{"error": "key_id already exists"})
+internal/integration/handler.go:100:			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "could not complete enrollment"})
+internal/integration/handler.go:105:	c.JSON(http.StatusCreated, response)
+internal/integration/handler.go:121:		c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"error": "integration not found"})
+internal/integration/handler.go:123:		c.AbortWithStatusJSON(http.StatusConflict, gin.H{"error": "invalid status transition"})
+internal/integration/handler.go:125:		c.AbortWithStatusJSON(http.StatusConflict, gin.H{"error": "integration has no active signing key"})
+internal/integration/handler.go:127:		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
+internal/integration/handler.go:129:		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "request failed"})
+internal/integration/handler.go:135:		c.AbortWithStatusJSON(http.StatusServiceUnavailable, gin.H{"error": "integration admin is not configured"})
+internal/integration/handler.go:147:		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
+internal/integration/handler.go:154:	c.JSON(http.StatusOK, gin.H{"status": req.Status})
+internal/integration/handler.go:167:	c.JSON(http.StatusOK, gin.H{"permissions": perms})
+internal/integration/handler.go:179:	c.JSON(http.StatusOK, gin.H{"permissions": perms})
+internal/integration/handler.go:188:		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "admin identity is missing"})
+internal/integration/handler.go:193:		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
+internal/integration/handler.go:201:	c.JSON(http.StatusOK, resp)
+internal/tools/handler.go:35:		c.JSON(http.StatusUnauthorized, gin.H{"error": "integration authentication required"})
+internal/tools/handler.go:41:		c.JSON(http.StatusBadRequest, gin.H{"error": "Idempotency-Key header is required"})
+internal/tools/handler.go:47:		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid tool definition"})
+internal/tools/handler.go:58:		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+internal/tools/handler.go:67:	c.JSON(status, gin.H{
+internal/tools/handler.go:76:		c.JSON(http.StatusUnauthorized, gin.H{"error": "integration authentication required"})
+internal/tools/handler.go:82:		c.JSON(http.StatusNotFound, gin.H{"error": "tool not found"})
+internal/tools/handler.go:86:	c.JSON(http.StatusOK, gin.H{"tool": record})
+internal/tools/handler.go:92:		c.JSON(http.StatusUnauthorized, gin.H{"error": "integration authentication required"})
+internal/tools/handler.go:98:		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid update request"})
+internal/tools/handler.go:102:		c.JSON(http.StatusBadRequest, gin.H{"error": "expected_version must be positive"})
+internal/tools/handler.go:114:		c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
+internal/tools/handler.go:118:	c.JSON(http.StatusOK, gin.H{"tool": record})
+internal/tools/handler.go:124:		c.JSON(http.StatusUnauthorized, gin.H{"error": "integration authentication required"})
+internal/tools/handler.go:130:		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid status request"})
+internal/tools/handler.go:134:		c.JSON(http.StatusBadRequest, gin.H{"error": "expected_version must be positive"})
+internal/tools/handler.go:146:		c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
+internal/tools/handler.go:150:	c.JSON(http.StatusOK, gin.H{"tool": record})
+internal/tools/handler.go:156:		c.JSON(http.StatusUnauthorized, gin.H{"error": "integration authentication required"})
+internal/tools/handler.go:162:		c.JSON(http.StatusBadRequest, gin.H{
+internal/tools/handler.go:174:		c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
+internal/middleware/admin.go:17:			c.AbortWithStatusJSON(http.StatusServiceUnavailable, gin.H{
+internal/middleware/admin.go:27:			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
+internal/middleware/permission.go:20:			c.AbortWithStatusJSON(http.StatusServiceUnavailable, gin.H{
+internal/middleware/permission.go:27:			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
+internal/middleware/permission.go:34:			c.AbortWithStatusJSON(http.StatusServiceUnavailable, gin.H{
+internal/middleware/permission.go:41:			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{
+internal/middleware/signed_request.go:22:			c.AbortWithStatusJSON(http.StatusServiceUnavailable, gin.H{
+internal/middleware/signed_request.go:33:				c.AbortWithStatusJSON(http.StatusServiceUnavailable, gin.H{
+internal/middleware/signed_request.go:38:			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid request signature"})
+internal/middleware/signed_request.go:42:			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid request signature"})

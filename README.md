@@ -1,246 +1,290 @@
 # DispatchAI
 
-**DispatchAI** is a domain-agnostic AI assistant and orchestration
-engine written in Go. It helps existing applications add
-natural-language interfaces to their capabilities without moving
-business logic, authorization, or transactional data into the AI layer.
+**DispatchAI is a host-agnostic AI dispatch and orchestration engine written in Go.** It lets an existing application expose selected capabilities to an LLM without moving its authentication, authorization, business rules, or transactional data into the AI layer.
 
-> **DispatchAI understands, reasons, and orchestrates. The host
-> application owns business truth, authorization, and execution.**
+> **DispatchAI orchestrates AI and tool interactions. The host application remains the source of business truth.**
 
-DispatchAI is designed to integrate with systems such as e-commerce,
-fleet management, logistics, field service, customer support, and
-internal enterprise applications.
+A host application might be a logistics platform, fleet-management system, e-commerce service, customer-support application, or internal enterprise product. The host keeps ownership of its users, tenants, domain services, and data. DispatchAI manages the conversation and LLM workflow and coordinates approved tool calls.
 
-## Table of contents
+## Contents
 
 - [DispatchAI](#dispatchai)
-  - [Table of contents](#table-of-contents)
-  - [Core design](#core-design)
-  - [What DispatchAI does](#what-dispatchai-does)
+  - [Contents](#contents)
+  - [Why DispatchAI](#why-dispatchai)
+  - [Core responsibility boundaries](#core-responsibility-boundaries)
   - [Architecture](#architecture)
-  - [Request and tool-execution flow](#request-and-tool-execution-flow)
-  - [Security and responsibility boundaries](#security-and-responsibility-boundaries)
-    - [DispatchAI is responsible for](#dispatchai-is-responsible-for)
-    - [The host application is responsible for](#the-host-application-is-responsible-for)
+  - [End-to-end chat flow](#end-to-end-chat-flow)
+    - [What happens in order](#what-happens-in-order)
+  - [How the host receives the answer](#how-the-host-receives-the-answer)
+  - [Security model](#security-model)
+    - [Required trust-boundary checks](#required-trust-boundary-checks)
+  - [Integration lifecycle](#integration-lifecycle)
+  - [API surface](#api-surface)
+    - [Request idempotency](#request-idempotency)
+  - [Request lifecycle and reliability](#request-lifecycle-and-reliability)
   - [Repository layout](#repository-layout)
-  - [Technology and adapters](#technology-and-adapters)
-    - [LLM providers](#llm-providers)
-    - [Storage](#storage)
-    - [Knowledge](#knowledge)
-    - [Notifications](#notifications)
-  - [Persistence and reliability](#persistence-and-reliability)
-  - [API integration model](#api-integration-model)
-  - [Configuration and running](#configuration-and-running)
+  - [Technology and infrastructure](#technology-and-infrastructure)
+  - [Configuration and local development](#configuration-and-local-development)
     - [Prerequisites](#prerequisites)
-    - [Download dependencies and run checks](#download-dependencies-and-run-checks)
-  - [Testing and quality checks](#testing-and-quality-checks)
-  - [Operational considerations](#operational-considerations)
-  - [Current scope and limitations](#current-scope-and-limitations)
+    - [Start local infrastructure](#start-local-infrastructure)
+    - [Configure the application](#configure-the-application)
+    - [Download dependencies and run](#download-dependencies-and-run)
+    - [Apply migrations](#apply-migrations)
+  - [Testing](#testing)
+  - [Production checklist](#production-checklist)
+    - [Known limitations to verify before relying on a feature](#known-limitations-to-verify-before-relying-on-a-feature)
   - [Guiding principle](#guiding-principle)
 
-## Core design
+## Why DispatchAI
 
-A conventional application handles requests through its own business
-services:
+Without an orchestration layer, an application may need to build LLM calls, conversation management, tool selection, retries, and request tracking directly into its backend.
 
-``` text
-User → Host API → Business services → Database / external systems
-```
+DispatchAI separates that AI workflow from the host's domain logic:
 
-DispatchAI adds an AI orchestration layer to that flow:
+- **Host application:** authenticates users, establishes trusted identity and tenant context, owns domain services and data, and authorizes and executes business operations.
+- **DispatchAI:** coordinates LLM requests, conversation context, registered tools, policy and idempotency checks, run/request state, and the final assistant response.
+- **LLM provider:** interprets the conversation and may request a tool. Its output is untrusted input, not authorization and not a source of current business truth.
 
-``` text
-User
-  │
-  ▼
-Host application
-  │ authenticated request + execution context
-  ▼
-DispatchAI API
-  │
-  ▼
-Assistant / orchestration loop
-  │
-  ▼
-LLM provider
-  │ structured tool call, if needed
-  ▼
-DispatchAI tool executor
-  │ policy checks + idempotency handling
-  ▼
-Host application's tool gateway
-  │
-  ▼
-Host business services → Database / external systems
-  │
-  ▼
-Structured tool result → DispatchAI → LLM → Final response
-```
+The host exposes only the capabilities it intends to make available. DispatchAI coordinates those capabilities; it does not replace the host's business backend.
 
-The LLM is not a source of business truth. It can propose a tool call,
-but the host application remains responsible for validating the request,
-enforcing authorization, applying business rules, and executing the
-operation.
+## Core responsibility boundaries
 
-## What DispatchAI does
+| Concern | Owner | Responsibility |
+|---|---|---|
+| User authentication | Host application | Authenticate the actual user |
+| Tenant and user identity | Host application | Establish and validate trusted context |
+| Domain authorization | Host application | Decide whether the user can access or change a resource |
+| Business rules | Host application | Validate domain constraints and state transitions |
+| Business database | Host application | Own transactional records and authoritative data |
+| Tool definitions and routing | DispatchAI, configured with the host | Describe and coordinate exposed capabilities |
+| LLM orchestration | DispatchAI | Send context to the model and handle tool-call cycles |
+| Conversation and run state | DispatchAI | Track the assistant workflow and persist supported state |
+| Request/tool idempotency | DispatchAI and host | Coordinate retries; host must protect external side effects too |
+| Final response delivery | DispatchAI → host → frontend | Return the result through the original HTTP request |
 
-The repository provides the building blocks for:
-
--   **LLM integration** through provider adapters for Gemini, OpenAI,
-    and Anthropic.
--   **Tool orchestration** using generic tool definitions, a registry,
-    policy checks, an execution gateway, and structured results.
--   **Conversation handling** with persisted message history and
-    per-conversation locking to serialize concurrent requests.
--   **Request idempotency** to track request state and return persisted
-    results for completed requests.
--   **Run lifecycle tracking** for created, running, waiting, completed,
-    failed, and cancelled execution states, subject to supported
-    transitions.
--   **Knowledge integration** through a provider abstraction and a
-    pgvector adapter.
--   **Notification adapters** for email, push, SMS, and webhooks.
--   **Operational building blocks** for policy decisions, approvals,
-    audit events, and observability.
-
-These are reusable backend components, not a claim that every
-deployment-specific workflow or operational policy is fully configured
-out of the box. The host application must still implement and enforce
-its own domain-specific controls.
+**The LLM never becomes the source of business truth.** For a question such as “Where is my shipment?”, the host's shipment service must return the authoritative status. The LLM can then explain that result in natural language.
 
 ## Architecture
 
-``` text
+```text
 ┌──────────────────────── HOST APPLICATION ────────────────────────┐
 │                                                                  │
-│  Authentication · Identity · Tenant context · Authorization      │
-│  Domain services · Business rules · Transactional data           │
-│  Host tool gateway · External business integrations              │
+│  Frontend · User authentication · Tenant context                 │
+│  Authorization · Business rules · Domain services                │
+│  Transactional database · External business systems              │
+│  Host-owned tool execution endpoint                               │
 │                                                                  │
 └─────────────────────────────┬────────────────────────────────────┘
-                              │ request / execution context
+                              │ signed API request / trusted context
                               ▼
 ┌────────────────────────────── DISPATCHAI ─────────────────────────┐
-│                                                                   │
-│  API and request lifecycle                                        │
+│                                                                  │
+│  API authentication and permission checks                        │
+│             │                                                    │
+│             ▼                                                    │
+│  Request idempotency ── Run lifecycle ── Conversation storage     │
+│             │                                                    │
+│             ▼                                                    │
+│  Orchestrator ───────────────────────────────► LLM provider       │
+│       │                                          │                │
+│       │              final answer ◄──────────────┤                │
+│       │              or tool calls              │                │
+│       ▼                                          │                │
+│  Tool registry / policy / executor               │                │
 │       │                                                           │
-│       ├── Request idempotency                                      │
-│       ├── Run lifecycle                                            │
-│       └── Conversation persistence and locking                     │
-│                                                                   │
-│  Assistant / orchestration                                         │
-│       │                                                           │
-│       ├── LLM abstraction ───────────► Provider adapters            │
-│       ├── Tool registry and policy                                  │
-│       ├── Tool executor ─────────────► Host tool gateway            │
-│       ├── Knowledge abstraction ────► Knowledge adapter             │
-│       └── Notification abstractions ► Notification adapters         │
-│                                                                   │
-│  Storage adapters · Audit abstractions · Observability              │
+└───────┼───────────────────────────────────────────────────────────┘
+        │ tool execution request
+        ▼
+┌──────────────────────── HOST TOOL GATEWAY ────────────────────────┐
+│  Authenticate caller · Authorize user/tenant · Validate arguments │
+│  Apply business rules · Execute domain service · Return result    │
 └───────────────────────────────────────────────────────────────────┘
 ```
 
-The core is intended to depend on interfaces rather than vendor-specific
-implementations. Adapters connect those interfaces to concrete providers
-and infrastructure.
+The host tool gateway is an integration boundary. A route name used in an example below is illustrative unless it matches the route implemented by your host application and configured in DispatchAI.
 
-## Request and tool-execution flow
+## End-to-end chat flow
 
-1.  The host application authenticates the user and supplies trusted
-    identity and tenant context.
-2.  DispatchAI validates the request and handles its idempotency key.
-3.  DispatchAI loads the conversation under a conversation-level lock.
-4.  The assistant sends the current context and available tool
-    definitions to the configured LLM provider.
-5.  If the model requests a tool, DispatchAI validates and routes the
-    call through its tool infrastructure.
-6.  Policy and idempotency checks run before the tool gateway is
-    invoked.
-7.  The host application's gateway performs authoritative authorization,
-    argument validation, business-rule checks, and execution.
-8.  DispatchAI passes the structured result back into the orchestration
-    loop.
-9.  The final answer, conversation state, run state, and idempotency
-    response are persisted according to the request path.
+The following sequence shows the intended interaction for an Acme logistics application. It includes the tool round-trip and, importantly, the return of the final answer to the backend that initiated the chat request.
 
-Tool calls are untrusted proposals from the model. A model response must
-never be treated as proof that a user is authorized to perform an
-operation.
+```mermaid
+sequenceDiagram
+    actor User as Acme User
+    participant FE as Acme Frontend
+    participant A as Acme Backend
+    participant D as DispatchAI
+    participant L as LLM
 
-## Security and responsibility boundaries
+    User->>FE: Where is my shipment?
+    FE->>A: Send chat message
+    A->>D: POST /v1/assistant/chat
+    D->>L: Ask LLM to answer
+    L-->>D: Request get_shipment_status tool
+    D->>A: POST /internal/dispatchai/tools/execute
+    A->>A: Authorize user and fetch shipment
+    A-->>D: Return shipment status
+    D->>L: Provide tool result
+    L-->>D: Generate final answer
+    D-->>A: Return final chat response
+    A-->>FE: Return response
+    FE-->>User: Display answer
+```
 
-### DispatchAI is responsible for
+### What happens in order
 
--   LLM request/response orchestration
--   Generic tool-call routing and execution coordination
--   Conversation and request lifecycle management
--   Idempotency coordination
--   Policy abstractions and approval-related building blocks
--   Optional knowledge retrieval integration
--   Provider and storage abstractions
--   Structured results and operational instrumentation
+1. The user submits a message in the frontend.
+2. The frontend sends it to the Acme backend. Acme authenticates the user and determines trusted user/tenant context.
+3. The backend sends the chat request to DispatchAI with the required integration authentication/signature, permission context, and idempotency key expected by the configured API.
+4. DispatchAI validates the request and its authorization context, checks request idempotency, and starts or resumes the supported request/run flow.
+5. DispatchAI sends the conversation and available tool definitions to the configured LLM provider.
+6. The model may request `get_shipment_status`. This is only a proposed action; it is not proof that the user is allowed to access that shipment.
+7. DispatchAI coordinates the tool call through its registry, policy, and idempotency safeguards, then calls the host's configured tool gateway.
+8. The host validates the request independently, authorizes access to the shipment, reads its own data source, and returns a structured tool result.
+9. DispatchAI passes that result back to the LLM. The model generates a user-facing answer grounded in the tool result.
+10. DispatchAI persists the supported conversation/request outcome and returns the final chat response in the original HTTP response.
+11. The Acme backend returns that response to the frontend, which displays it to the user.
 
-### The host application is responsible for
+**Important:** `/internal/dispatchai/tools/execute` is an example host-side gateway path for this diagram. It must be implemented by the host and configured to match the actual tool-execution contract. Do not assume this exact route is created automatically by DispatchAI.
 
--   Authentication and trusted identity propagation
--   Tenant isolation and authoritative authorization
--   Domain-specific permissions and business rules
--   Validating tool arguments against business requirements
--   Business databases and transactional consistency
--   Execution of business operations and external business APIs
--   Business-specific notification policies
--   Deciding which capabilities are exposed to the AI
+## How the host receives the answer
 
-**Never rely on the LLM to authorize an action.** The host tool endpoint
-must independently authenticate or verify the caller/service identity,
-validate tenant context, enforce permissions, and reject unauthorized
-requests.
+In the synchronous chat flow, the host normally receives the final answer as the response to the same HTTP request it made to DispatchAI. It does not need a separate callback merely to receive that answer.
 
-Avoid placing secrets, credentials, sensitive personal data, or
-unrestricted business records in prompts and logs. Tool schemas should
-expose only the minimum capabilities and fields required.
+Conceptually, the exchange is:
+
+```text
+Acme Backend ── POST chat request ──► DispatchAI
+Acme Backend ◄── final chat response ─ DispatchAI
+```
+
+The following JSON is only an **illustrative shape**, not a promise of the exact current response schema. Use the response model implemented by the checked-out version of DispatchAI:
+
+```json
+{
+  "request_id": "request-uuid",
+  "run_id": "run-uuid",
+  "conversation_id": "conversation-uuid",
+  "answer": "Your shipment is in transit and is expected to arrive tomorrow."
+}
+```
+
+A host client should check the HTTP status, handle non-success responses, and decode the response into a type that matches the actual API contract. It should not assume that a response is successful merely because a body was received.
+
+## Security model
+
+The integration uses signed requests for protected integration endpoints. The current design uses integration identity and key identity headers, with ECDSA P-256 signatures using SHA-256. The exact canonicalization rules and required headers must match the implementation in the authentication package.
+
+At a high level:
+
+1. An integration is provisioned through the administrative onboarding flow.
+2. The host generates and retains its private signing key.
+3. DispatchAI stores the corresponding public key and associates it with the integration/key identity.
+4. The host signs each protected request according to DispatchAI's canonical request format.
+5. DispatchAI verifies the signature and checks the integration's status and required permissions.
+
+Never send a private signing key to DispatchAI. Never commit private keys, tokens, API credentials, `.env` files, or production secrets to source control.
+
+Signing authenticates the integration request; it does **not** replace the host's end-user authorization. The host must still decide whether the authenticated user can access a shipment, order, account, or other resource. Do not trust arbitrary `user_id`, `tenant_id`, roles, or permissions supplied in a request body unless they have been established or verified through a trusted mechanism.
+
+### Required trust-boundary checks
+
+- Verify the signed request and its canonicalization, timestamp/nonce protections if implemented, and key identity.
+- Reject suspended or otherwise ineligible integrations.
+- Check the integration's granted permission for the requested API operation.
+- Validate every tool name and argument against the registered definition.
+- Independently authorize the end user and tenant in the host gateway.
+- Avoid logging signing material, bearer tokens, private data, or unrestricted tool payloads.
+- Apply timeouts, request-size limits, rate limits, and network restrictions appropriate to the deployment.
+
+## Integration lifecycle
+
+The onboarding and authorization model separates integration status from permissions.
+
+The intended lifecycle is:
+
+```text
+Admin creates integration
+        │
+        ▼
+Pending integration + short-lived enrollment token
+        │
+        ▼
+Host enrolls a public signing key
+        │
+        ▼
+Admin activates integration
+        │
+        ▼
+Active integration ─────────► Admin suspends integration
+        ▲                                  │
+        └──────── Admin reactivates ───────┘
+```
+
+An enrollment token is time-limited and is intended for the enrollment operation, not as a permanent request credential. A host should store its private key securely and use the matching key ID when signing requests.
+
+Permission grants are separate from lifecycle state. Granting a permission must not implicitly activate an integration; a pending or suspended integration should remain unable to use protected endpoints until its status permits access.
+
+Exact administrative request bodies, token formats, and response fields should be taken from the current API handlers and models. Do not copy guessed fields into a production client.
+
+## API surface
+
+The repository's current API areas include the following route groups. Confirm the exact HTTP methods, request schemas, and middleware in the checked-out router before wiring a client; route names alone do not define a complete contract.
+
+| API area | Purpose |
+|---|---|
+| `POST /v1/assistant/chat` | Submit a chat request and receive the final assistant response synchronously |
+| `/v1/integrations/enroll` | Enroll an integration signing key using the enrollment flow |
+| `/v1/integrations/tools` | Manage or access registered tool definitions through the protected integration API |
+| `/v1/admin` | Administrative integration lifecycle and permission operations |
+| `/v1/conversation/conversation` | Conversation-related operations, subject to the routes registered in the current version |
+| `/v1/conversation/conversation/:conversation_id` | Access a conversation-specific resource, subject to the registered method and middleware |
+| `/v1/conversation/chat` | Conversation/chat route if registered by the current router; verify its exact relationship to the assistant endpoint before using it |
+
+The route groups above reflect the project API areas, not a substitute for the actual router. In particular, verify whether `/v1/assistant/chat` and the conversation-prefixed chat route are both enabled in the current build and whether they share the same handler.
+
+### Request idempotency
+
+For chat requests, send a stable `Idempotency-Key` for retries of the same logical operation when the endpoint requires it. Reuse the same key only for the same request. A request key should not be reused for a different message or different request context.
+
+The server may return a conflict for a request that is still in progress, and it should reject key reuse when the request fingerprint differs. Clients should handle these outcomes explicitly rather than blindly retrying.
+
+## Request lifecycle and reliability
+
+DispatchAI tracks request idempotency separately from run lifecycle. A run can move through supported states such as created, running, waiting for tools/approval, completed, failed, or cancelled. The exact valid transitions are defined by the implementation.
+
+Reliability principles:
+
+- Persist state before reporting durable completion.
+- Bind idempotency keys to request fingerprints.
+- Do not assume a timeout means the host tool did not execute.
+- Do not repeat a non-idempotent business operation simply because DispatchAI failed to receive or persist its response.
+- Give host-side side effects their own idempotency protection.
+- Treat database/network errors at completion boundaries as potentially ambiguous until durable state is checked.
+- Bound LLM and tool execution time and cancellation behavior.
+- Exercise locking and duplicate-request behavior against PostgreSQL, not only mocks.
+
+Conversation-level locking can serialize work for the same conversation, but lock duration and connection-pool usage must be measured and bounded. Idempotency in DispatchAI alone cannot guarantee exactly-once behavior across arbitrary host services or external APIs.
 
 ## Repository layout
 
-The repository is organized around core interfaces, infrastructure
-adapters, contracts, migrations, and examples. The exact tree may evolve
-as implementation changes.
+The codebase is organized into application entry points, API handlers, orchestration, domain contracts, storage adapters, migrations, and deployment configuration. The exact tree may change as the implementation evolves.
 
-``` text
+```text
 .
 ├── adapters/
-│   ├── knowledge/
-│   │   └── pgvector/
 │   ├── llm/
-│   │   ├── anthropic/
-│   │   ├── gemini/
-│   │   └── openai/
-│   ├── notification/
-│   │   ├── email/
-│   │   ├── push/
-│   │   ├── sms/
-│   │   └── webhook/
 │   └── storage/
-│       ├── postgres/
-│       └── redis/
+│       └── postgres/
 ├── cmd/
 │   └── assistant/
-├── contracts/
 ├── deployments/
-├── examples/
-│   └── ecommerce/
+│   └── docker/
 ├── internal/
 │   ├── api/
-│   ├── approval/
-│   ├── audit/
-│   ├── config/
+│   ├── authn/
 │   ├── conversation/
 │   ├── idempotency/
-│   ├── knowledge/
-│   ├── llm/
-│   ├── notification/
-│   ├── observability/
+│   ├── integration/
 │   ├── orchestration/
 │   ├── policy/
 │   ├── project/
@@ -248,260 +292,156 @@ as implementation changes.
 │   └── tools/
 ├── migrations/
 ├── models/
-├── Makefile
+├── .env.dev              # local-only; do not commit secrets
 ├── go.mod
 └── README.md
 ```
 
-Use the actual checked-out tree as the source of truth if package names
-or directories differ from this overview.
+Use `find . -maxdepth 3 -type d` and inspect the actual source tree if you need to confirm the current package layout. Do not add secrets or generated binaries to the repository.
 
-## Technology and adapters
+## Technology and infrastructure
 
-### LLM providers
+The repository is a Go backend and includes the following architectural building blocks where wired in the current configuration:
 
-Provider implementations live under `adapters/llm/` and integrate with
-the core LLM abstraction.
+- **Go and Gin** for the HTTP API.
+- **PostgreSQL** for durable application data and migrations.
+- **LLM provider abstraction** with provider-specific adapters in the repository.
+- **Conversation orchestration** for LLM calls and tool-call loops.
+- **Tool registry and executor** for describing and coordinating host capabilities.
+- **Request and tool idempotency** to reduce duplicate processing.
+- **Integration authentication** based on signed requests and registered public keys.
+- **Run lifecycle and policy abstractions** for controlled execution.
+- **Docker Compose configuration** under `deployments/docker/` for local infrastructure.
 
--   Gemini
--   OpenAI
--   Anthropic
+A package or adapter existing in the repository does not necessarily mean it is enabled in every deployment. Check configuration and constructor wiring to determine which providers and infrastructure are active.
 
-Configure credentials and provider selection through the application's
-configuration. Never commit API keys or place them in example
-configuration files.
+## Configuration and local development
 
-### Storage
-
-Storage adapters include PostgreSQL and Redis. PostgreSQL is used for
-durable application records such as conversations, runs, and idempotency
-state; Redis is available for supported ephemeral or fast-access storage
-use cases.
-
-The exact set of records persisted by each adapter is defined by its
-implementation and database migrations.
-
-### Knowledge
-
-The knowledge abstraction supports pluggable retrieval providers,
-including a pgvector adapter. Knowledge retrieval is appropriate for
-relatively stable content such as policies, SOPs, manuals, and internal
-documentation.
-
-For live transactional data---such as current order status, inventory,
-account balances, or vehicle location---prefer an authorized
-host-project tool rather than treating retrieved documents as current
-truth.
-
-### Notifications
-
-Notification adapters are organized by delivery channel: email, push,
-SMS, and webhook. Their availability does not replace host-owned
-recipient authorization, consent, rate limits, or business notification
-policies.
-
-## Persistence and reliability
-
-DispatchAI tracks runs and request idempotency separately. These records
-support lifecycle visibility and safe handling of repeated requests, but
-they do not automatically make arbitrary external side effects
-exactly-once.
-
-Important design considerations:
-
--   Use a stable idempotency key for retries of the same logical
-    request.
--   Bind an idempotency key to the original request fingerprint; reject
-    reuse for a different request.
--   Persist run and request outcomes before reporting durable
-    completion.
--   Do not automatically rerun a potentially completed business
-    operation merely because response persistence failed.
--   Ensure host tools implement their own idempotency for side effects
-    where duplicate execution would be harmful.
--   Treat ambiguous database/network failures as ambiguous until durable
-    state can be inspected.
--   Set request, provider, tool, and database timeouts appropriate to
-    the deployment.
--   Plan database connection capacity carefully when conversation locks
-    are held across LLM and tool operations.
-
-Conversation locking serializes requests for the same conversation. It
-does not replace tenant authorization or host-side transactional
-controls.
-
-## API integration model
-
-A host application can expose a generic tool endpoint, for example:
-
-``` http
-POST /api/v1/ai/tools/execute
-```
-
-The precise request and response fields must match the contracts
-implemented by the checked-out version of DispatchAI and the host
-integration.
-
-A conceptual tool request might look like:
-
-``` json
-{
-  "request_id": "request-uuid",
-  "conversation_id": "conversation-uuid",
-  "tool_name": "get_customer_orders",
-  "call_id": "tool-call-id",
-  "arguments": {
-    "customer_id": "customer-123"
-  }
-}
-```
-
-The host gateway should map registered tool names to existing domain
-services rather than embedding business rules in DispatchAI:
-
-``` text
-Host tool endpoint
-    ↓
-Authenticate service request and establish trusted context
-    ↓
-Resolve registered tool
-    ↓
-Validate arguments and authorize the user/tenant
-    ↓
-Apply business rules
-    ↓
-Call existing service/repository
-    ↓
-Return a structured tool result
-```
-
-Do not trust user IDs, tenant IDs, roles, or permissions merely because
-they appear in a JSON request body. Establish or verify this context
-through a trusted authentication mechanism between the host application
-and DispatchAI.
-
-## Configuration and running
-
-This repository is a Go backend. Use the configuration and migration
-mechanisms provided by the checked-out version; required environment
-variables, service ports, and provider settings should be confirmed from
-the configuration package, deployment files, and example environment
-file rather than guessed from this overview.
+Use the configuration files and migration runner in the checked-out repository as the source of truth. The commands below assume you are running them from the repository root.
 
 ### Prerequisites
 
--   A Go version compatible with `go.mod`
--   PostgreSQL configured for the project's migrations
--   Redis if the configured deployment uses it
--   Credentials for the selected LLM provider
--   A reachable host-project tool gateway when using external business
-    tools
+- A Go version compatible with `go.mod`.
+- Docker and Docker Compose if you use the local containerized dependencies.
+- PostgreSQL configured with the project's database and migrations.
+- Credentials and configuration for the selected LLM provider.
+- A host tool gateway if your workflow invokes host-owned tools.
 
-### Download dependencies and run checks
+### Start local infrastructure
 
-``` bash
+The Compose file is located at `deployments/docker/docker-compose.yml`. From the repository root:
+
+```bash
+docker compose -f deployments/docker/docker-compose.yml up -d
+```
+
+To stop the services:
+
+```bash
+docker compose -f deployments/docker/docker-compose.yml down
+```
+
+Review the Compose file before starting it so you understand which services, ports, volumes, and environment variables it uses.
+
+### Configure the application
+
+Create or update the local development environment file expected by the application (the current development workflow uses `.env.dev`). Populate it with local values for the database connection, LLM provider, and any other required settings discovered in the config package. Do not put real credentials into the README or commit them.
+
+### Download dependencies and run
+
+```bash
 go mod download
+go test ./...
+go vet ./...
+```
+
+The current local entry point used in development is:
+
+```bash
+go run cmd/assistant/main.go
+```
+
+Run it from the repository root so relative configuration paths resolve as expected. Check startup logs and the current configuration implementation for the actual listening address, database readiness, and provider setup. Do not assume a port or environment variable name without checking the code.
+
+### Apply migrations
+
+Apply migrations in the order expected by the repository's migration mechanism before running code that depends on newly added tables or columns. Verify the migration status against the target database. For a safe check, use a disposable development/test database first and test both upgrade behavior and any supported rollback.
+
+## Testing
+
+Run the Go test suite and static checks from the repository root:
+
+```bash
 go test ./... -count=1
 go vet ./...
 git diff --check
 ```
 
-Apply database migrations using the repository's existing migration
-runner before starting a deployment that depends on schema changes.
+Database-backed integration tests may require the local PostgreSQL container and an explicit opt-in environment variable. Read the relevant test setup before running integration tests against a database with data you care about.
 
-Do not commit `.env` files, provider keys, database credentials, or
-production secrets. Use your deployment platform's secret manager or
-protected environment configuration.
+Prioritize coverage for:
 
-## Testing and quality checks
+- Signed-request canonicalization and invalid signatures.
+- Integration lifecycle and permission enforcement.
+- Enrollment-token expiry, reuse, and invalid enrollment attempts.
+- Tool registration, schema validation, versioning, and disabled/deleted tools.
+- Tool authorization, policy denial, and malformed tool calls.
+- Duplicate request keys and reuse with a different request fingerprint.
+- Concurrent requests and conversation locking.
+- Run-state transitions and failure handling.
+- Database persistence errors during request completion.
+- Host gateway timeouts and duplicate side-effect prevention.
+- Cross-integration and cross-tenant isolation.
 
-The repository uses Go's test tooling. Tests should cover both ordinary
-results and failure/retry behavior.
+A passing unit-test suite is valuable but does not prove migration correctness, cross-instance locking, or recovery from failures across the DispatchAI/host boundary. Test those guarantees with the actual supported infrastructure.
 
-``` bash
-go test ./... -count=1
-go vet ./...
-git diff --check
-```
+## Production checklist
 
-Prioritize tests for:
+Before deploying to production, verify the following:
 
--   Tool registry validation and unknown tools
--   Executor configuration and malformed tool calls
--   Policy denial and non-retryable failures
--   Idempotency key reuse with a different request fingerprint
--   Duplicate requests and recovery after persistence errors
--   Conversation ownership and concurrent requests
--   Run state transitions and persistence
--   Provider timeouts, rate limits, and malformed responses
--   Host gateway errors and duplicate side-effect prevention
+- [ ] The API contract and route/middleware configuration match the host client.
+- [ ] Private signing keys and enrollment tokens are securely managed.
+- [ ] Integration status and permissions are checked on protected requests.
+- [ ] The host independently authorizes each user/tenant/resource operation.
+- [ ] Database migrations have been applied and verified.
+- [ ] Request and tool idempotency behavior is covered by integration tests.
+- [ ] Host operations with side effects are independently idempotent where necessary.
+- [ ] LLM, database, and tool calls have bounded timeouts and cancellation behavior.
+- [ ] Request size, conversation length, tool-call count, and token usage are bounded.
+- [ ] Logs and traces redact secrets and sensitive tool data.
+- [ ] Metrics and alerts cover provider failures, request conflicts, stuck runs, lock contention, and persistence failures.
+- [ ] Backup, restore, shutdown, and ambiguous-operation recovery procedures are documented.
+- [ ] Load, concurrency, and failure-injection tests have been run.
 
-Unit tests alone do not prove database migrations, multi-instance
-locking, or end-to-end recovery behavior. Run integration tests against
-the actual supported infrastructure for those guarantees.
+### Known limitations to verify before relying on a feature
 
-## Operational considerations
+DispatchAI is evolving. The presence of an abstraction does not by itself prove that a complete workflow is wired end to end. Verify the current implementation before depending on:
 
-Before deploying to production, configure and verify:
+- Full durable human-approval and resume workflows.
+- Automatic recovery of every interrupted or ambiguous request.
+- Exactly-once effects across host systems and third-party APIs.
+- Production-grade audit export, tracing, alerting, and retention policies.
+- Every provider/adapter being enabled in the active runtime configuration.
 
--   Authentication and service-to-service trust
--   TLS and network restrictions
--   Tenant isolation
--   LLM provider quotas, rate limits, and timeouts
--   Database migrations, backups, and connection-pool sizing
--   Redis availability and capacity, if used
--   Structured logs, metrics, and distributed tracing
--   Redaction of prompts, tool arguments, and provider errors where they
-    may contain sensitive data
--   Limits on tool calls, request size, tokens, and execution time
--   Host-side idempotency for irreversible operations
--   Recovery procedures for ambiguous or partially persisted outcomes
--   Load and failure tests under expected concurrency
-
-Do not describe a deployment as production-ready solely because
-`go test ./...` passes. Production readiness also depends on database
-integration tests, operational configuration, security review, and
-failure recovery.
-
-## Current scope and limitations
-
-DispatchAI is an evolving orchestration backend. The presence of a
-package or abstraction does not mean every end-to-end capability is
-automatically enabled or production-complete. In particular:
-
--   Human approval workflows require complete lifecycle wiring, durable
-    state, and authorization checks before being relied on for sensitive
-    actions.
--   Audit and observability abstractions require deployment-specific
-    exporters, retention, alerting, and redaction policies.
--   Knowledge retrieval quality depends on ingestion, chunking, access
-    control, retrieval configuration, and evaluation.
--   Request idempotency inside DispatchAI cannot alone guarantee
-    exactly-once behavior across arbitrary external systems.
--   Durable workflow orchestration is a separate capability and should
-    not be assumed unless it is explicitly integrated and configured.
-
-Check the implementation, migrations, tests, and deployment
-configuration for the authoritative status of any feature before
-depending on it.
+Track unfinished implementation and integration-test work in issues or a release checklist. Keep this README aligned with the actual handlers, models, migrations, and deployment configuration.
 
 ## Guiding principle
 
-``` text
+```text
 DISPATCHAI
-  Understand intent
-  Reason and plan
-  Orchestrate LLM and tool interactions
-  Manage request and conversation lifecycle
-  Return a grounded response
+  Understand the user's intent
+  Orchestrate the LLM/tool-call loop
+  Enforce its integration-level controls
+  Manage supported conversation/request/run state
+  Return the assistant response
 
 HOST APPLICATION
-  Authenticate and authorize
-  Enforce tenant boundaries
-  Apply business rules
-  Execute operations
+  Authenticate the user
+  Establish trusted identity and tenant context
+  Authorize access to each resource
+  Enforce business rules
+  Execute business operations
   Own transactional data and business truth
 ```
 
-**DispatchAI does not own the business. It orchestrates the capabilities
-that the host application deliberately exposes.**
+**DispatchAI does not own the host's business. It orchestrates the capabilities that the host deliberately exposes.**

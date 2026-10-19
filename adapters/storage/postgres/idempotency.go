@@ -4,10 +4,10 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
-	"fmt"
 
 	"github.com/cockroachdb/errors"
 	"github.com/google/uuid"
+	errs "github.com/mtariq99/dispatchai/internal/errors"
 	"github.com/mtariq99/dispatchai/models"
 )
 
@@ -23,24 +23,24 @@ func NewIdempotencyStore(db *sql.DB) *IdempotencyStore {
 
 func (s *IdempotencyStore) Complete(ctx context.Context, integrationID uuid.UUID, key string, requestID uuid.UUID, runID uuid.UUID, response *models.ChatResponse) error {
 	if integrationID == uuid.Nil {
-		return errors.New("tenant id is required")
+		return errs.ErrIntegrationIDRequired
 	}
 	if key == "" {
-		return errors.New("idempotency key is required")
+		return errs.ErrIdempotencyKeyRequired
 	}
 	if requestID == uuid.Nil {
-		return errors.New("request id is required")
+		return errs.ErrRequestIDRequired
 	}
 	if runID == uuid.Nil {
-		return errors.New("run id is required")
+		return errs.ErrRunIDRequired
 	}
 	if response == nil {
-		return errors.New("response is required")
+		return errs.ErrResponseRequired
 	}
 
 	responseJSON, err := json.Marshal(response)
 	if err != nil {
-		return fmt.Errorf("marshal chat response: %w", err)
+		return errs.ErrMarshalFailedChatResponse
 	}
 
 	query := `
@@ -57,16 +57,16 @@ func (s *IdempotencyStore) Complete(ctx context.Context, integrationID uuid.UUID
 
 	result, err := s.db.ExecContext(ctx, query, integrationID, key, requestID, runID, responseJSON)
 	if err != nil {
-		return fmt.Errorf("complete request idempotency: %w", err)
+		return errs.ErrCompleteRequestIdempotency
 	}
 
 	rows, err := result.RowsAffected()
 	if err != nil {
-		return fmt.Errorf("get affected rows: %w", err)
+		return errs.Wrapf(errs.ErrGetAffectedRows, err)
 	}
 
 	if rows != 1 {
-		return errors.New("request idempotency record is not pending")
+		return errs.ErrIdempotencyRecordNotPending
 	}
 
 	return nil
@@ -74,10 +74,10 @@ func (s *IdempotencyStore) Complete(ctx context.Context, integrationID uuid.UUID
 
 func (s *IdempotencyStore) Get(ctx context.Context, integrationID uuid.UUID, key string) (*models.ChatResponse, bool, error) {
 	if integrationID == uuid.Nil {
-		return nil, false, errors.New("integration id is required")
+		return nil, false, errs.ErrIntegrationIDRequired
 	}
 	if key == "" {
-		return nil, false, errors.New("idempotency key is required")
+		return nil, false, errs.ErrIdempotencyKeyRequired
 	}
 
 	var responseJSON []byte
@@ -102,13 +102,13 @@ func (s *IdempotencyStore) Get(ctx context.Context, integrationID uuid.UUID, key
 	}
 
 	if err != nil {
-		return nil, false, fmt.Errorf("get request idempotency: %w", err)
+		return nil, false, errs.ErrGetRequestIdempotencyState
 	}
 
 	var response models.ChatResponse
 
 	if err := json.Unmarshal(responseJSON, &response); err != nil {
-		return nil, false, fmt.Errorf("unmarshal stored chat response: %w", err)
+		return nil, false, errs.ErrUnmarshalStoredChatResponse
 	}
 
 	return &response, true, nil
@@ -116,20 +116,20 @@ func (s *IdempotencyStore) Get(ctx context.Context, integrationID uuid.UUID, key
 
 func (s *IdempotencyStore) Reserve(ctx context.Context, integrationID uuid.UUID, key string, conversationID uuid.UUID, requestID uuid.UUID, fingerprint string) (bool, error) {
 	if integrationID == uuid.Nil {
-		return false, errors.New("integration id is required")
+		return false, errs.ErrIntegrationIDRequired
 	}
 	if key == "" {
-		return false, errors.New("idempotency key is required")
+		return false, errs.ErrIdempotencyKeyRequired
 	}
 	if conversationID == uuid.Nil {
-		return false, errors.New("conversation id is required")
+		return false, errs.ErrConversationIDRequired
 	}
 	if requestID == uuid.Nil {
-		return false, errors.New("request id is required")
+		return false, errs.ErrRequestIDRequired
 	}
 
 	if fingerprint == "" {
-		return false, errors.New("request fingerprint is required")
+		return false, errs.ErrRequestFingerprintRequired
 	}
 
 	query := `
@@ -148,12 +148,12 @@ ON CONFLICT (integration_id, key) DO NOTHING
 
 	result, err := s.db.ExecContext(ctx, query, key, integrationID, conversationID, requestID, fingerprint)
 	if err != nil {
-		return false, fmt.Errorf("reserve request idempotency: %w", err)
+		return false, errs.Wrapf(errs.ErrReserveRequestIdempotency, err)
 	}
 
 	rows, err := result.RowsAffected()
 	if err != nil {
-		return false, fmt.Errorf("get affected rows: %w", err)
+		return false, errs.ErrGetAffectedRows
 	}
 
 	return rows == 1, nil
@@ -161,24 +161,24 @@ ON CONFLICT (integration_id, key) DO NOTHING
 
 func (s *IdempotencyStore) Fail(ctx context.Context, integrationID uuid.UUID, key string, requestID uuid.UUID, runID uuid.UUID, response *models.ChatResponse) error {
 	if integrationID == uuid.Nil {
-		return errors.New("integration id is required")
+		return errs.ErrIntegrationIDRequired
 	}
 	if key == "" {
-		return errors.New("idempotency key is required")
+		return errs.ErrIdempotencyKeyRequired
 	}
 	if requestID == uuid.Nil {
-		return errors.New("request id is required")
+		return errs.ErrRequestIDRequired
 	}
 	if runID == uuid.Nil {
-		return errors.New("run id is required")
+		return errs.ErrRunIDRequired
 	}
 	if response == nil {
-		return errors.New("response is required")
+		return errs.ErrResponseRequired
 	}
 
 	responseJSON, err := json.Marshal(response)
 	if err != nil {
-		return fmt.Errorf("marshal failed chat response: %w", err)
+		return errs.Wrapf(errs.ErrMarshal, err)
 	}
 
 	query := `
@@ -195,16 +195,16 @@ func (s *IdempotencyStore) Fail(ctx context.Context, integrationID uuid.UUID, ke
 
 	result, err := s.db.ExecContext(ctx, query, integrationID, key, requestID, runID, responseJSON)
 	if err != nil {
-		return fmt.Errorf("fail request idempotency: %w", err)
+		return errs.ErrFailRequestIdempotency
 	}
 
 	rows, err := result.RowsAffected()
 	if err != nil {
-		return fmt.Errorf("get affected rows: %w", err)
+		return errs.ErrGetAffectedRows
 	}
 
 	if rows != 1 {
-		return errors.New("request idempotency record is not pending")
+		return errs.ErrIdempotencyRecordNotPending
 	}
 
 	return nil
@@ -212,24 +212,24 @@ func (s *IdempotencyStore) Fail(ctx context.Context, integrationID uuid.UUID, ke
 
 func (s *IdempotencyStore) FailBeforeRun(ctx context.Context, integrationID uuid.UUID, key string, requestID uuid.UUID, response *models.ChatResponse) error {
 	if integrationID == uuid.Nil {
-		return errors.New("integration id is required")
+		return errs.ErrIntegrationIDRequired
 	}
 
 	if key == "" {
-		return errors.New("idempotency key is required")
+		return errs.ErrIdempotencyKeyRequired
 	}
 
 	if requestID == uuid.Nil {
-		return errors.New("request id is required")
+		return errs.ErrRequestIDRequired
 	}
 
 	if response == nil {
-		return errors.New("response is required")
+		return errs.ErrResponseRequired
 	}
 
 	responseJSON, err := json.Marshal(response)
 	if err != nil {
-		return fmt.Errorf("marshal failed chat response: %w", err)
+		return errs.ErrMarshalChatResponse
 	}
 
 	const query = `
@@ -246,16 +246,16 @@ func (s *IdempotencyStore) FailBeforeRun(ctx context.Context, integrationID uuid
 
 	result, err := s.db.ExecContext(ctx, query, integrationID, key, requestID, responseJSON)
 	if err != nil {
-		return fmt.Errorf("fail request before run: %w", err)
+		return errs.Wrapf(errs.ErrFailRequestBeforeRun, err)
 	}
 
 	rows, err := result.RowsAffected()
 	if err != nil {
-		return fmt.Errorf("get affected rows: %w", err)
+		return errs.ErrGetAffectedRows
 	}
 
 	if rows != 1 {
-		return errors.New("request idempotency record is not pending before run")
+		return errs.ErrIdempotencyRecordNotPending
 	}
 
 	return nil
@@ -263,11 +263,11 @@ func (s *IdempotencyStore) FailBeforeRun(ctx context.Context, integrationID uuid
 
 func (s *IdempotencyStore) GetState(ctx context.Context, integrationID uuid.UUID, key string) (*models.RequestState, bool, error) {
 	if integrationID == uuid.Nil {
-		return nil, false, errors.New("integration id is required")
+		return nil, false, errs.ErrIntegrationIDRequired
 	}
 
 	if key == "" {
-		return nil, false, errors.New("idempotency key is required")
+		return nil, false, errs.ErrIdempotencyKeyRequired
 	}
 
 	var (
@@ -306,7 +306,7 @@ func (s *IdempotencyStore) GetState(ctx context.Context, integrationID uuid.UUID
 	}
 
 	if err != nil {
-		return nil, false, fmt.Errorf("get request idempotency state: %w", err)
+		return nil, false, errs.ErrGetRequestIdempotencyState
 	}
 
 	state := &models.RequestState{
@@ -321,7 +321,7 @@ func (s *IdempotencyStore) GetState(ctx context.Context, integrationID uuid.UUID
 		var response models.ChatResponse
 
 		if err := json.Unmarshal(responseJSON, &response); err != nil {
-			return nil, false, fmt.Errorf("unmarshal stored chat response: %w", err)
+			return nil, false, errs.ErrUnmarshalStoredChatResponse
 		}
 
 		state.Response = &response

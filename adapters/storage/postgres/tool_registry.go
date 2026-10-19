@@ -5,10 +5,10 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
-	"fmt"
 	"time"
 
 	"github.com/cockroachdb/errors"
+	"github.com/google/uuid"
 	errs "github.com/mtariq99/dispatchai/internal/errors"
 	"github.com/mtariq99/dispatchai/internal/tools"
 	"github.com/mtariq99/dispatchai/models"
@@ -45,42 +45,42 @@ func ScanTool(row interface{ Scan(...any) error }) (*tools.DefinitionRecord, err
 		return nil, err
 	}
 	if err := json.Unmarshal(schema, &record.Definition.Parameters); err != nil {
-		return nil, fmt.Errorf("decode tool input schema: %w", err)
+		return nil, errs.Wrapf(errs.ErrDecodeToolSchema, err)
 	}
 	return &record, nil
 }
 
 func ValidateDefinition(def *models.Definition) ([]byte, error) {
 	if def.Name == "" {
-		return nil, errors.New("tool name cannot be empty")
+		return nil, errs.ErrToolNameRequired
 	}
 	if len(def.Description) == 0 {
-		return nil, errors.New("tool description cannot be empty")
+		return nil, errs.ErrToolDescriptionRequired
 	}
 
 	if len(def.Name) > 100 {
-		return nil, errors.New("tool name exceeds 100 characters")
+		return nil, errs.ErrToolNameTooLong
 	}
 	if def.Parameters == nil {
-		return nil, errors.New("tool parameters schema cannot be nil")
+		return nil, errs.ErrToolSchemaRequired
 	}
 	if def.Parameters["type"] != "object" {
-		return nil, errors.New("tool parameters schema must have type object")
+		return nil, errs.ErrToolSchemaMustBeObject
 	}
 
 	schema, err := json.Marshal(def.Parameters)
 	if err != nil {
-		return nil, fmt.Errorf("encode tool schema: %w", err)
+		return nil, errs.Wrapf(errs.ErrDecodeToolSchema, err)
 	}
 	return schema, nil
 }
 
 func (tr *ToolRegistry) CreateToolRegistry(ctx context.Context, integrationID string, defination *models.Definition, idempotencyKey string, requestHash []byte) (*tools.DefinitionRecord, bool, error) {
 	if tr == nil || tr.db == nil {
-		return nil, false, errors.New("tool registry database is not configured")
+		return nil, false, errs.ErrDatabaseNotConfigured
 	}
 	if integrationID == "" || idempotencyKey == "" || len(requestHash) == 0 {
-		return nil, false, errors.New("missing required fields")
+		return nil, false, errs.ErrFieldsRequired
 	}
 	schema, err := ValidateDefinition(defination)
 	if err != nil {
@@ -88,7 +88,7 @@ func (tr *ToolRegistry) CreateToolRegistry(ctx context.Context, integrationID st
 	}
 	tx, err := tr.db.BeginTx(ctx, nil)
 	if err != nil {
-		return nil, false, fmt.Errorf("begin tool registration: %w", err)
+		return nil, false, errs.Wrapf(errs.ErrBeginToolRegistration, err)
 	}
 	defer tx.Rollback()
 
@@ -112,15 +112,15 @@ func (tr *ToolRegistry) CreateToolRegistry(ctx context.Context, integrationID st
 		sqlRow := tx.QueryRowContext(ctx, getRecordQuery, oldToolID, integrationID)
 		record, getErr := ScanTool(sqlRow)
 		if getErr != nil {
-			return nil, false, fmt.Errorf("load registered tool: %w", getErr)
+			return nil, false, errs.Wrapf(errs.ErrLoadRegisteredTool, err)
 		}
 		if err := tx.Commit(); err != nil {
-			return nil, false, fmt.Errorf("commit registration replay: %w", err)
+			return nil, false, errs.Wrapf(errs.ErrCommitRegistrationReplay, err)
 		}
 		return record, true, nil
 	}
 	if !errors.Is(err, sql.ErrNoRows) {
-		return nil, false, fmt.Errorf("check registration idempotency: %w", err)
+		return nil, false, errs.Wrapf(errs.ErrCheckRegistrationIdempotency, err)
 	}
 
 	var integrationStatus string
@@ -132,7 +132,7 @@ func (tr *ToolRegistry) CreateToolRegistry(ctx context.Context, integrationID st
 		return nil, false, errs.ErrIntegrationInactive
 	}
 	if err != nil {
-		return nil, false, fmt.Errorf("load integration: %w", err)
+		return nil, false, errs.Wrapf(errs.ErrIntegrationNotFound, err)
 	}
 	if integrationStatus != "active" {
 		return nil, false, errs.ErrIntegrationInactive
@@ -145,7 +145,7 @@ func (tr *ToolRegistry) CreateToolRegistry(ctx context.Context, integrationID st
 	sqlInsertToolRow := tx.QueryRowContext(ctx, toolInsertQuery, integrationID, defination.Name, defination.Description, schema)
 	record, err := ScanTool(sqlInsertToolRow)
 	if err != nil {
-		return nil, false, fmt.Errorf("insert tool definition: %w", err)
+		return nil, false, errs.Wrapf(errs.ErrInsertToolDefinition, err)
 	}
 
 	if err := insertToolVersion(ctx, tx, record, "created"); err != nil {
@@ -158,11 +158,11 @@ func (tr *ToolRegistry) CreateToolRegistry(ctx context.Context, integrationID st
 	`
 	_, err = tx.ExecContext(ctx, InsertIdempotencyQuery, integrationID, idempotencyKey, requestHash, record.ID)
 	if err != nil {
-		return nil, false, fmt.Errorf("persist registration idempotency: %w", err)
+		return nil, false, errs.Wrapf(errs.ErrCheckRegistrationIdempotency, err)
 	}
 
 	if err := tx.Commit(); err != nil {
-		return nil, false, fmt.Errorf("commit tool registration: %w", err)
+		return nil, false, errs.Wrapf(errs.ErrCommitToolRegistration, err)
 	}
 	return record, false, nil
 }
@@ -183,7 +183,7 @@ func (tr *ToolRegistry) GetTool(ctx context.Context, integrationID, toolID strin
 	return tool, nil
 }
 
-func (r *ToolRegistry) ListEnabled(ctx context.Context, integrationID string) ([]*tools.DefinitionRecord, error) {
+func (r *ToolRegistry) ListEnabled(ctx context.Context, integrationID uuid.UUID) ([]*tools.DefinitionRecord, error) {
 	enabledSlctQuery := `
 		SELECT ` + toolColumns + `
 		FROM tool_definitions d
@@ -198,7 +198,7 @@ func (r *ToolRegistry) ListEnabled(ctx context.Context, integrationID string) ([
 	`
 	rows, err := r.db.QueryContext(ctx, enabledSlctQuery, integrationID)
 	if err != nil {
-		return nil, fmt.Errorf("list enabled tool definitions: %w", err)
+		return nil, errs.Wrapf(errs.ErrListEnabledTools, err)
 	}
 	defer rows.Close()
 
@@ -206,19 +206,19 @@ func (r *ToolRegistry) ListEnabled(ctx context.Context, integrationID string) ([
 	for rows.Next() {
 		record, err := ScanTool(rows)
 		if err != nil {
-			return nil, fmt.Errorf("scan tool definition: %w", err)
+			return nil, errs.Wrapf(errs.ErrScanToolDefinition, err)
 		}
 		records = append(records, record)
 	}
 	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("iterate tool definitions: %w", err)
+		return nil, errs.Wrapf(errs.ErrIterateToolDefinitions, err)
 	}
 	return records, nil
 }
 
 func (r *ToolRegistry) GetForExecution(ctx context.Context, integrationID, toolID string, expectedVersion int) (*tools.DefinitionRecord, error) {
 	if r == nil || r.db == nil {
-		return nil, errors.New("tool registry database is not configured")
+		return nil, errs.ErrDatabaseNotConfigured
 	}
 	selectQuery := `
 		SELECT ` + toolColumns + `
@@ -236,7 +236,7 @@ func (r *ToolRegistry) GetForExecution(ctx context.Context, integrationID, toolI
 		return nil, errs.ErrToolUnavailable
 	}
 	if err != nil {
-		return nil, fmt.Errorf("validate tool for execution: %w", err)
+		return nil, errs.Wrapf(errs.ErrValidateToolForExecution, err)
 	}
 	if expectedVersion <= 0 || record.Version != expectedVersion {
 		return nil, errs.ErrVersionConflict
@@ -246,7 +246,7 @@ func (r *ToolRegistry) GetForExecution(ctx context.Context, integrationID, toolI
 
 func (r *ToolRegistry) beginMutation(ctx context.Context, integrationID, toolID string, expectedVersion int) (*sql.Tx, *tools.DefinitionRecord, error) {
 	if r == nil || r.db == nil {
-		return nil, nil, errors.New("tool registry database is not configured")
+		return nil, nil, errs.ErrDatabaseNotConfigured
 	}
 	if expectedVersion <= 0 {
 		return nil, nil, errs.ErrVersionConflict
@@ -254,7 +254,7 @@ func (r *ToolRegistry) beginMutation(ctx context.Context, integrationID, toolID 
 
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
-		return nil, nil, fmt.Errorf("begin tool mutation: %w", err)
+		return nil, nil, errs.Wrapf(errs.ErrBeginToolMutation, err)
 	}
 	lockedSelectQuery := `
 		SELECT ` + toolColumns + `
@@ -272,7 +272,7 @@ func (r *ToolRegistry) beginMutation(ctx context.Context, integrationID, toolID 
 	}
 	if err != nil {
 		tx.Rollback()
-		return nil, nil, fmt.Errorf("load tool for mutation: %w", err)
+		return nil, nil, errs.Wrapf(errs.ErrLoadToolForMutation, err)
 	}
 	if current.Version != expectedVersion {
 		tx.Rollback()
@@ -288,7 +288,7 @@ func (r *ToolRegistry) commitMutation(ctx context.Context, tx *sql.Tx, record *t
 		}
 	}
 	if err := tx.Commit(); err != nil {
-		return nil, fmt.Errorf("commit tool mutation: %w", err)
+		return nil, errs.Wrapf(errs.ErrCommitToolMutation, err)
 	}
 	return record, nil
 }
@@ -317,16 +317,16 @@ func (r *ToolRegistry) Update(ctx context.Context, integrationID, toolID string,
 		var exists bool
 		err := tx.QueryRowContext(ctx, selectQuery, integrationID, definition.Name, toolID).Scan(&exists)
 		if err != nil {
-			return nil, fmt.Errorf("mutate tool definition: %w", err)
+			return nil, errs.Wrapf(errs.ErrMutateToolDefinition, err)
 		}
 		if exists {
-			return nil, fmt.Errorf("mutate tool definition: %w", errors.New("tool name already exists in this integration"))
+			return nil, errs.ErrToolNameConflict
 		}
 	}
 
 	record, changeType, err := updateDefinition(ctx, tx, integrationID, toolID, definition, schema, current.Version+1)
 	if err != nil {
-		return nil, fmt.Errorf("mutate tool definition: %w", err)
+		return nil, errs.Wrapf(errs.ErrMutateToolDefinition, err)
 	}
 	return r.commitMutation(ctx, tx, record, changeType)
 }
@@ -356,7 +356,7 @@ func (r *ToolRegistry) SetEnabled(ctx context.Context, integrationID, toolID str
 
 	record, err := ScanTool(sqlRow)
 	if err != nil {
-		return nil, fmt.Errorf("mutate tool definition: %w", err)
+		return nil, errs.Wrapf(errs.ErrMutateToolDefinition, err)
 	}
 	return r.commitMutation(ctx, tx, record, change)
 }
@@ -377,7 +377,7 @@ func (r *ToolRegistry) SoftDelete(ctx context.Context, integrationID, toolID str
 	updateSqlRow := tx.QueryRowContext(ctx, updateQuery, toolID, integrationID, current.Version)
 	record, err := ScanTool(updateSqlRow)
 	if err != nil {
-		return fmt.Errorf("mutate tool definition: %w", err)
+		return errs.Wrapf(errs.ErrMutateToolDefinition, err)
 	}
 	_, err = r.commitMutation(ctx, tx, record, "deleted")
 	return err
@@ -398,7 +398,7 @@ func updateDefinition(ctx context.Context, tx *sql.Tx, integrationID, toolID str
 func insertToolVersion(ctx context.Context, tx *sql.Tx, record *tools.DefinitionRecord, changeType string) error {
 	schema, err := json.Marshal(record.Definition.Parameters)
 	if err != nil {
-		return fmt.Errorf("encode versioned tool schema: %w", err)
+		return errs.Wrapf(errs.ErrEncodeVersionedToolSchema, err)
 	}
 	insertQ := `
 		INSERT INTO tool_definition_versions
@@ -408,7 +408,7 @@ func insertToolVersion(ctx context.Context, tx *sql.Tx, record *tools.Definition
 	_, err = tx.ExecContext(ctx, insertQ, record.ID, record.Version, record.Definition.Name, record.Definition.Description,
 		schema, record.Enabled, changeType, time.Now().UTC())
 	if err != nil {
-		return fmt.Errorf("persist tool definition version: %w", err)
+		return errs.Wrapf(errs.ErrPersistToolDefinitionVersion, err)
 	}
 	return nil
 }
