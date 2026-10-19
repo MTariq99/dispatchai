@@ -10,7 +10,6 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/google/uuid"
 	errs "github.com/mtariq99/dispatchai/internal/errors"
-	"github.com/mtariq99/dispatchai/internal/tools"
 	"github.com/mtariq99/dispatchai/models"
 )
 
@@ -26,8 +25,8 @@ func NewToolRegistry(db *sql.DB) *ToolRegistry {
 
 const toolColumns = `id::text,integration_id::text,name,description,input_schema,version,enabled,created_at,updated_at,deleted_at`
 
-func ScanTool(row interface{ Scan(...any) error }) (*tools.DefinitionRecord, error) {
-	var record tools.DefinitionRecord
+func ScanTool(row interface{ Scan(...any) error }) (*models.DefinitionRecord, error) {
+	var record models.DefinitionRecord
 	var schema []byte
 	err := row.Scan(
 		&record.ID,
@@ -75,7 +74,7 @@ func ValidateDefinition(def *models.Definition) ([]byte, error) {
 	return schema, nil
 }
 
-func (tr *ToolRegistry) CreateToolRegistry(ctx context.Context, integrationID string, defination *models.Definition, idempotencyKey string, requestHash []byte) (*tools.DefinitionRecord, bool, error) {
+func (tr *ToolRegistry) CreateToolRegistry(ctx context.Context, integrationID string, defination *models.Definition, idempotencyKey string, requestHash []byte) (*models.DefinitionRecord, bool, error) {
 	if tr == nil || tr.db == nil {
 		return nil, false, errs.ErrDatabaseNotConfigured
 	}
@@ -167,7 +166,7 @@ func (tr *ToolRegistry) CreateToolRegistry(ctx context.Context, integrationID st
 	return record, false, nil
 }
 
-func (tr *ToolRegistry) GetTool(ctx context.Context, integrationID, toolID string) (*tools.DefinitionRecord, error) {
+func (tr *ToolRegistry) GetTool(ctx context.Context, integrationID, toolID string) (*models.DefinitionRecord, error) {
 	if tr == nil || tr.db == nil {
 		return nil, errors.New("tool registry database is not configured")
 	}
@@ -183,7 +182,7 @@ func (tr *ToolRegistry) GetTool(ctx context.Context, integrationID, toolID strin
 	return tool, nil
 }
 
-func (r *ToolRegistry) ListEnabled(ctx context.Context, integrationID uuid.UUID) ([]*tools.DefinitionRecord, error) {
+func (r *ToolRegistry) ListEnabled(ctx context.Context, integrationID uuid.UUID) ([]*models.DefinitionRecord, error) {
 	enabledSlctQuery := `
 		SELECT ` + toolColumns + `
 		FROM tool_definitions d
@@ -202,7 +201,7 @@ func (r *ToolRegistry) ListEnabled(ctx context.Context, integrationID uuid.UUID)
 	}
 	defer rows.Close()
 
-	var records []*tools.DefinitionRecord
+	var records []*models.DefinitionRecord
 	for rows.Next() {
 		record, err := ScanTool(rows)
 		if err != nil {
@@ -216,7 +215,7 @@ func (r *ToolRegistry) ListEnabled(ctx context.Context, integrationID uuid.UUID)
 	return records, nil
 }
 
-func (r *ToolRegistry) GetForExecution(ctx context.Context, integrationID, toolID string, expectedVersion int) (*tools.DefinitionRecord, error) {
+func (r *ToolRegistry) GetForExecution(ctx context.Context, integrationID, toolID string, expectedVersion int) (*models.DefinitionRecord, error) {
 	if r == nil || r.db == nil {
 		return nil, errs.ErrDatabaseNotConfigured
 	}
@@ -244,7 +243,7 @@ func (r *ToolRegistry) GetForExecution(ctx context.Context, integrationID, toolI
 	return record, nil
 }
 
-func (r *ToolRegistry) beginMutation(ctx context.Context, integrationID, toolID string, expectedVersion int) (*sql.Tx, *tools.DefinitionRecord, error) {
+func (r *ToolRegistry) beginMutation(ctx context.Context, integrationID, toolID string, expectedVersion int) (*sql.Tx, *models.DefinitionRecord, error) {
 	if r == nil || r.db == nil {
 		return nil, nil, errs.ErrDatabaseNotConfigured
 	}
@@ -281,7 +280,7 @@ func (r *ToolRegistry) beginMutation(ctx context.Context, integrationID, toolID 
 	return tx, current, nil
 }
 
-func (r *ToolRegistry) commitMutation(ctx context.Context, tx *sql.Tx, record *tools.DefinitionRecord, changeType string) (*tools.DefinitionRecord, error) {
+func (r *ToolRegistry) commitMutation(ctx context.Context, tx *sql.Tx, record *models.DefinitionRecord, changeType string) (*models.DefinitionRecord, error) {
 	if changeType != "" {
 		if err := insertToolVersion(ctx, tx, record, changeType); err != nil {
 			return nil, err
@@ -293,7 +292,7 @@ func (r *ToolRegistry) commitMutation(ctx context.Context, tx *sql.Tx, record *t
 	return record, nil
 }
 
-func (r *ToolRegistry) Update(ctx context.Context, integrationID, toolID string, expectedVersion int, definition *models.Definition) (*tools.DefinitionRecord, error) {
+func (r *ToolRegistry) Update(ctx context.Context, integrationID, toolID string, expectedVersion int, definition *models.Definition) (*models.DefinitionRecord, error) {
 	schema, err := ValidateDefinition(definition)
 	if err != nil {
 		return nil, err
@@ -331,7 +330,7 @@ func (r *ToolRegistry) Update(ctx context.Context, integrationID, toolID string,
 	return r.commitMutation(ctx, tx, record, changeType)
 }
 
-func (r *ToolRegistry) SetEnabled(ctx context.Context, integrationID, toolID string, expectedVersion int, enabled bool) (*tools.DefinitionRecord, error) {
+func (r *ToolRegistry) SetEnabled(ctx context.Context, integrationID, toolID string, expectedVersion int, enabled bool) (*models.DefinitionRecord, error) {
 	tx, current, err := r.beginMutation(ctx, integrationID, toolID, expectedVersion)
 	if err != nil {
 		return nil, err
@@ -383,7 +382,7 @@ func (r *ToolRegistry) SoftDelete(ctx context.Context, integrationID, toolID str
 	return err
 }
 
-func updateDefinition(ctx context.Context, tx *sql.Tx, integrationID, toolID string, definition *models.Definition, schema []byte, nextVersion int) (*tools.DefinitionRecord, string, error) {
+func updateDefinition(ctx context.Context, tx *sql.Tx, integrationID, toolID string, definition *models.Definition, schema []byte, nextVersion int) (*models.DefinitionRecord, string, error) {
 	query := `   -- scanTool -> ScanTool
 		UPDATE tool_definitions
 		SET name = $3, description = $4, input_schema = $5::jsonb,
@@ -395,7 +394,7 @@ func updateDefinition(ctx context.Context, tx *sql.Tx, integrationID, toolID str
 	return record, "updated", err
 }
 
-func insertToolVersion(ctx context.Context, tx *sql.Tx, record *tools.DefinitionRecord, changeType string) error {
+func insertToolVersion(ctx context.Context, tx *sql.Tx, record *models.DefinitionRecord, changeType string) error {
 	schema, err := json.Marshal(record.Definition.Parameters)
 	if err != nil {
 		return errs.Wrapf(errs.ErrEncodeVersionedToolSchema, err)

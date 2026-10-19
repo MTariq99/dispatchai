@@ -13,6 +13,15 @@ import (
 	"github.com/mtariq99/dispatchai/models"
 )
 
+type Repository interface {
+	CreateToolRegistry(ctx context.Context, integrationID string, defination *models.Definition, idempotencyKey string, requestHash []byte) (*models.DefinitionRecord, bool, error)
+	GetTool(ctx context.Context, integrationID, toolID string) (*models.DefinitionRecord, error)
+	ListEnabled(ctx context.Context, integrationID uuid.UUID) ([]*models.DefinitionRecord, error)
+	Update(ctx context.Context, integrationID, toolID string, expectedVersion int, definition *models.Definition) (*models.DefinitionRecord, error)
+	SetEnabled(ctx context.Context, integrationID, toolID string, expectedVersion int, enabled bool) (*models.DefinitionRecord, error)
+	SoftDelete(ctx context.Context, integrationID, toolID string, expectedVersion int) error
+	GetForExecution(ctx context.Context, integrationID, toolID string, expectedVersion int) (*models.DefinitionRecord, error)
+}
 type RegistrationService struct {
 	repo Repository
 }
@@ -27,7 +36,7 @@ func NewRegistrationService(repo Repository) (*RegistrationService, error) {
 	}, nil
 }
 
-func (rs *RegistrationService) CreateTool(ctx context.Context, integrationID string, idempotencyKey string, definition *models.Definition) (*DefinitionRecord, bool, error) {
+func (rs *RegistrationService) CreateTool(ctx context.Context, integrationID string, idempotencyKey string, definition *models.Definition) (*models.DefinitionRecord, bool, error) {
 	if err := validateRegistrationInput(integrationID, definition); err != nil {
 		return nil, false, err
 	}
@@ -84,7 +93,7 @@ func validateDefinition(definition *models.Definition) error {
 	return nil
 }
 
-func (s *RegistrationService) Get(ctx context.Context, integrationID string, toolID string) (*DefinitionRecord, error) {
+func (s *RegistrationService) Get(ctx context.Context, integrationID string, toolID string) (*models.DefinitionRecord, error) {
 	if strings.TrimSpace(integrationID) == "" {
 		return nil, errors.New("integration identity is required")
 	}
@@ -99,7 +108,7 @@ func (s *RegistrationService) Get(ctx context.Context, integrationID string, too
 	return record, nil
 }
 
-func (s *RegistrationService) Update(ctx context.Context, integrationID string, toolID string, expectedVersion int, definition *models.Definition) (*DefinitionRecord, error) {
+func (s *RegistrationService) Update(ctx context.Context, integrationID string, toolID string, expectedVersion int, definition *models.Definition) (*models.DefinitionRecord, error) {
 	if strings.TrimSpace(integrationID) == "" {
 		return nil, errors.New("integration identity is required")
 	}
@@ -120,7 +129,7 @@ func (s *RegistrationService) Update(ctx context.Context, integrationID string, 
 	return record, nil
 }
 
-func (s *RegistrationService) SetEnabled(ctx context.Context, integrationID string, toolID string, expectedVersion int, enabled bool) (*DefinitionRecord, error) {
+func (s *RegistrationService) SetEnabled(ctx context.Context, integrationID string, toolID string, expectedVersion int, enabled bool) (*models.DefinitionRecord, error) {
 	if strings.TrimSpace(integrationID) == "" {
 		return nil, errors.New("integration identity is required")
 	}
@@ -157,7 +166,7 @@ func (s *RegistrationService) Delete(ctx context.Context, integrationID string, 
 	return nil
 }
 
-func (s *RegistrationService) GetToolsList(ctx context.Context, integrationID uuid.UUID) ([]*DefinitionRecord, error) {
+func (s *RegistrationService) GetToolsList(ctx context.Context, integrationID uuid.UUID) ([]*models.DefinitionRecord, error) {
 	if integrationID == uuid.Nil {
 		return nil, errors.New("integration id is required")
 	}

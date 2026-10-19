@@ -2,6 +2,7 @@ package models
 
 import (
 	"encoding/json"
+	"time"
 )
 
 type Call struct {
@@ -47,4 +48,15 @@ type UpdateToolRequest struct {
 type ToggleToolRequest struct {
 	ExpectedVersion int  `json:"expected_version"`
 	Enabled         bool `json:"enabled"`
+}
+
+type DefinitionRecord struct {
+	ID            string
+	IntegrationID string
+	Definition    Definition
+	Version       int
+	Enabled       bool
+	DeletedAt     *time.Time
+	CreatedAt     time.Time
+	UpdatedAt     time.Time
 }

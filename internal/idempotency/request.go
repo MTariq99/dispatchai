@@ -51,21 +51,6 @@ func (s *IdempotencyService) CompleteReq(ctx context.Context, integrationID uuid
 	return s.ReqIdempotencyStore.Complete(ctx, integrationID, key, requestID, runID, response)
 }
 
-func (s *IdempotencyService) GetReq(ctx context.Context, integrationID uuid.UUID, key string) (*models.ChatResponse, bool, error) {
-	if integrationID == uuid.Nil {
-		return nil, false, errors.New("integration id is required")
-	}
-	if key == "" {
-		return nil, false, errors.New("idempotency key is required")
-	}
-	response, isFound, err := s.ReqIdempotencyStore.Get(ctx, integrationID, key)
-	if err != nil {
-		return nil, false, err
-	}
-
-	return response, isFound, nil
-}
-
 func (s *IdempotencyService) ReserveReq(ctx context.Context, integrationID uuid.UUID, key string, conversationID uuid.UUID, requestID uuid.UUID, fingerprint string) (bool, error) {
 	if integrationID == uuid.Nil {
 		return false, errors.New("integration id is required")
