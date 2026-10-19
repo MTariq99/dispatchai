@@ -294,35 +294,45 @@ func (i *IntegrationOnboardingStore) GrantPermissions(ctx context.Context, clien
 	}, nil
 }
 
-func (i *IntegrationOnboardingStore) GetGrantedPermissions(ctx context.Context, clientID string) ([]string, error) {
+func (i *IntegrationOnboardingStore) GetGrantedPermissions(ctx context.Context, integrationID uuid.UUID) ([]string, error) {
 	if i == nil || i.db == nil {
 		return nil, errs.ErrDatabaseNotConfigured
 	}
+
 	var exists bool
-	if err := i.db.QueryRowContext(ctx,
-		`SELECT EXISTS (SELECT 1 FROM host_integrations WHERE integration_key = $1)`, clientID).Scan(&exists); err != nil {
-		return nil, fmt.Errorf("check integration: %w", err)
+	if err := i.db.QueryRowContext(
+		ctx,
+		`SELECT EXISTS (SELECT 1 FROM host_integrations WHERE id = $1)`, integrationID,
+	).Scan(&exists); err != nil {
+		return nil, errs.Wrapf(errs.ErrCheckIntegration, err)
 	}
 	if !exists {
 		return nil, errs.ErrIntegrationNotFound
 	}
+
 	rows, err := i.db.QueryContext(ctx, `
-		SELECT g.permission FROM integration_permission_grants g
-		JOIN host_integrations h ON h.id = g.integration_id
-		WHERE h.integration_key = $1 ORDER BY g.permission`, clientID)
+		SELECT permission
+		FROM integration_permission_grants
+		WHERE integration_id = $1
+		ORDER BY permission`, integrationID)
 	if err != nil {
 		return nil, errs.Wrapf(errs.ErrListGrantedPermissions, err)
 	}
 	defer rows.Close()
+
 	perms := []string{}
 	for rows.Next() {
 		var p string
 		if err := rows.Scan(&p); err != nil {
-			return nil, err
+			return nil, errs.Wrapf(errs.ErrScanGrantedPermission, err)
 		}
 		perms = append(perms, p)
 	}
-	return perms, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, errs.Wrapf(errs.ErrListGrantedPermissions, err)
+	}
+
+	return perms, nil
 }
 
 func (i *IntegrationOnboardingStore) HasAccess(ctx context.Context, integrationID, permission string) (bool, error) {

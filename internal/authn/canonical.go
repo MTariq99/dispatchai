@@ -31,18 +31,17 @@ func BuildCanonicalReq(req models.CanonicalRequest) ([]byte, error) {
 	h := req.Headers
 
 	if req.Method == "" || req.Path == "" {
-		return nil, fmt.Errorf("%w: method and path are required", errs.ErrInvalidRequest)
+		return nil, errs.Wrapf(errs.ErrInvalidRequest, nil, " : method and path are required")
 	}
 	if req.Method != strings.ToUpper(req.Method) {
-		return nil, fmt.Errorf("%w: method must be uppercase", errs.ErrInvalidRequest)
+		return nil, errs.Wrapf(errs.ErrInvalidRequest, nil, " : method must be uppercase")
 	}
 	if !strings.HasPrefix(req.Path, "/") {
-		return nil, fmt.Errorf("%w: path must be absolute", errs.ErrInvalidRequest)
+		return nil, errs.Wrapf(errs.ErrInvalidRequest, nil, ": path must be absolute")
 	}
 
-	if strings.ContainsAny(req.Path, "\r\n") ||
-		strings.ContainsAny(req.Query, "\r\n") {
-		return nil, fmt.Errorf("%w: invalid path or query", errs.ErrInvalidRequest)
+	if strings.ContainsAny(req.Path, "\r\n") || strings.ContainsAny(req.Query, "\r\n") {
+		return nil, errs.Wrapf(errs.ErrInvalidRequest, nil, ": invalid path or query")
 	}
 
 	fields := []string{

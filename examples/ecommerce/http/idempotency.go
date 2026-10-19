@@ -133,17 +133,11 @@ func requestFingerprint(req *models.ToolRequest) (string, error) {
 	}
 
 	fingerprint, err := json.Marshal(struct {
-		ToolName      string                      `json:"tool_name"`
-		Arguments     json.RawMessage             `json:"arguments"`
-		Identity      models.Identity             `json:"identity"`
-		Tenant        models.TenantContext        `json:"tenant"`
-		Authorization models.AuthorizationContext `json:"authorization"`
+		ToolName  string          `json:"tool_name"`
+		Arguments json.RawMessage `json:"arguments"`
 	}{
-		ToolName:      req.ToolName,
-		Arguments:     canonicalArguments,
-		Identity:      req.Identity,
-		Tenant:        req.Tenant,
-		Authorization: req.Authorization,
+		ToolName:  req.ToolName,
+		Arguments: canonicalArguments,
 	})
 	if err != nil {
 		return "", err

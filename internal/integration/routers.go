@@ -11,7 +11,7 @@ func (h *IntegrationOnboardingHandler) RegisterAdminRoutes(r gin.IRoutes) {
 
 	r.POST("/integrations", body, h.Create)
 	r.POST("/integrations/:client_id/toggle", body, h.ToggleIntegration)
-	r.GET("/integrations/:client_id/permissions", h.GetGrantedPermissions)
+	r.GET("/integrations/permissions", h.GetGrantedPermissions)
 	r.POST("/integrations/:client_id/permissions", body, h.UpsertGrantedPermission)
 	r.GET("/permissions", h.GetPermissions)
 }

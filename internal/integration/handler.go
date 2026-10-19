@@ -9,6 +9,8 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/mtariq99/dispatchai/internal/enums"
 	errs "github.com/mtariq99/dispatchai/internal/errors"
+	"github.com/mtariq99/dispatchai/internal/integrationctx"
+	"github.com/mtariq99/dispatchai/internal/utils"
 	"github.com/mtariq99/dispatchai/models"
 )
 
@@ -171,7 +173,17 @@ func (h *IntegrationOnboardingHandler) GetGrantedPermissions(c *gin.Context) {
 	if !h.adminReady(c) {
 		return
 	}
-	perms, err := h.admin.GrantedPermissions(c.Request.Context(), c.Param("client_id"))
+	integrationIDStr, ok := integrationctx.Get(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, models.ErrorResponse{Error: "integration authentication required"})
+		return
+	}
+	integrationID, err := utils.ParseUUID(integrationIDStr, "integration id")
+	if err != nil {
+		c.JSON(http.StatusBadRequest, models.ErrorResponse{Error: err.Error()})
+		return
+	}
+	perms, err := h.admin.GrantedPermissions(c.Request.Context(), integrationID)
 	if err != nil {
 		writeAdminError(c, err)
 		return

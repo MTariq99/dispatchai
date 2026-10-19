@@ -13,7 +13,7 @@ type IntegrationAdminStore interface {
 	GetHostIntegrationByClientID(ctx context.Context, clientID string) (*models.HostIntegration, error)
 	UpateHostIntegrationStatus(ctx context.Context, clientID string, status string) error
 	GetHostPermissions(ctx context.Context) ([]*models.HostPermissions, error)
-	GetGrantedPermissions(ctx context.Context, clientID string) ([]string, error)
+	GetGrantedPermissions(ctx context.Context, integrationID uuid.UUID) ([]string, error)
 	GrantPermissions(ctx context.Context, clientID string, integrationID uuid.UUID, permissions []string, grantedBy string) (*models.GrantPermissions, error)
 }
 
@@ -47,14 +47,14 @@ func (s *AdminService) PermissionCatalog(ctx context.Context) ([]*models.HostPer
 	return s.store.GetHostPermissions(ctx)
 }
 
-func (s *AdminService) GrantedPermissions(ctx context.Context, clientID string) ([]string, error) {
+func (s *AdminService) GrantedPermissions(ctx context.Context, IntegrationID uuid.UUID) ([]string, error) {
 	if s == nil || s.store == nil {
 		return nil, errors.New("integration admin service is not configured")
 	}
-	if clientID == "" {
+	if IntegrationID == uuid.Nil {
 		return nil, errs.ErrInvalidOnboardingRequest
 	}
-	return s.store.GetGrantedPermissions(ctx, clientID)
+	return s.store.GetGrantedPermissions(ctx, IntegrationID)
 }
 
 func (s *AdminService) GrantPermissions(ctx context.Context, clientID, grantedBy string, req *models.GrantPermissionsReq) (*models.GrantPermissions, error) {

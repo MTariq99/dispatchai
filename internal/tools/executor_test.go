@@ -89,8 +89,7 @@ func newExecutorTestSetup(t *testing.T, engine *policy.Engine) (*Executer, *exec
 	execCtx := &models.ExecutionContext{
 		RunID:          uuid.New(),
 		ConversationID: uuid.New(),
-		Identity:       models.Identity{UserID: uuid.New()},
-		Tenant:         models.TenantContext{TenantID: uuid.New()},
+		IntegrationID:  uuid.New(),
 	}
 
 	return executor, gateway, store, execCtx

@@ -29,51 +29,14 @@ func (n *Notifications) SendNotification(ctx context.Context, req *models.ToolRe
 		return nil, fmt.Errorf("unexpected tool: %s", req.ToolName)
 	}
 
-	// 1. Validate identity
-	if req.Identity.UserID == uuid.Nil {
+	if req.IntegrationID == uuid.Nil {
 		return &models.ToolResponse{
 			RequestID: req.RequestID,
 			CallID:    req.CallID,
 			Success:   false,
 			Error: &models.ToolError{
 				Code:      "UNAUTHENTICATED",
-				Message:   "user identity is required",
-				Retryable: false,
-			},
-		}, nil
-	}
-
-	// 2. Validate tenant
-	if req.Tenant.TenantID == uuid.Nil {
-		return &models.ToolResponse{
-			RequestID: req.RequestID,
-			CallID:    req.CallID,
-			Success:   false,
-			Error: &models.ToolError{
-				Code:      "TENANT_REQUIRED",
-				Message:   "tenant context is required",
-				Retryable: false,
-			},
-		}, nil
-	}
-
-	// 3. Host Project authorization
-	authorized := false
-	for _, permission := range req.Authorization.Permissions {
-		if permission == "notification.send" {
-			authorized = true
-			break
-		}
-	}
-
-	if !authorized {
-		return &models.ToolResponse{
-			RequestID: req.RequestID,
-			CallID:    req.CallID,
-			Success:   false,
-			Error: &models.ToolError{
-				Code:      "FORBIDDEN",
-				Message:   "user is not authorized to send notifications",
+				Message:   "integration identity is required",
 				Retryable: false,
 			},
 		}, nil
@@ -116,8 +79,8 @@ func (n *Notifications) SendNotification(ctx context.Context, req *models.ToolRe
 	// err := n.notificationService.Send(ctx, req.Tenant.TenantID, arguments.CustomerID, arguments.Message)
 	//
 	// Stubbed: just log it and report success.
-	fmt.Printf("[STUB NOTIFICATION] tenant=%s customer=%s message=%q\n",
-		req.Tenant.TenantID, arguments.CustomerID, arguments.Message)
+	fmt.Printf("[STUB NOTIFICATION] integration=%s customer=%s message=%q\n",
+		req.IntegrationID, arguments.CustomerID, arguments.Message)
 
 	result := map[string]any{
 		"customer_id": arguments.CustomerID,

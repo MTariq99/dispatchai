@@ -97,19 +97,24 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	integrationStore := storage.NewIntegrationOnboardingStore(db)
 
+	adminService, err := integration.NewAdminService(integrationStore)
+	if err != nil {
+		log.Fatalf("integration admin service: %v", err)
+	}
 	conversationHandler, err := conversation.NewConversationHandler(
 		cfg,
 		conversationService,
 		assistantService,
 		runService,
 		idempotencyService,
+		adminService,
 	)
 	if err != nil {
 		log.Fatalf("conversation handler: %v", err)
 	}
 
-	integrationStore := storage.NewIntegrationOnboardingStore(db)
 	enrollmentStore := storage.NewIntegrationEnrollmentStore(db)
 
 	onboardingService, err := integration.NewOnboardingService(
@@ -118,11 +123,6 @@ func main() {
 	)
 	if err != nil {
 		log.Fatalf("integration onboarding service: %v", err)
-	}
-
-	adminService, err := integration.NewAdminService(integrationStore)
-	if err != nil {
-		log.Fatalf("integration admin service: %v", err)
 	}
 
 	onboardingHandler := integration.NewIntegrationOnboardingHandler(

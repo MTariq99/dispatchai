@@ -49,7 +49,6 @@ func (c *Client) ExecuteTool(ctx context.Context, req *models.ToolRequest) (*mod
 	if err != nil {
 		return nil, fmt.Errorf("marshal tool request: %w", err)
 	}
-
 	endpoint := c.BaseURL + "/tools/execute"
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(body))
 	if err != nil {

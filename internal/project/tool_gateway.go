@@ -101,15 +101,13 @@ func (ptg *ProjectToolGateway) Execute(ctx context.Context, call models.Call, ex
 
 	toolRequest := &models.ToolRequest{
 		RequestID:      execCtx.RequestID,
+		RunID:          execCtx.RunID,
 		ConversationID: execCtx.ConversationID,
+		IntegrationID:  execCtx.IntegrationID,
 		ToolName:       call.Name,
 		CallID:         call.ID,
 		Arguments:      call.Arguments,
-		Identity:       execCtx.Identity,
-		Tenant:         execCtx.Tenant,
-		Authorization:  execCtx.Authorization,
 		Trace:          execCtx.Trace,
-		RunID:          execCtx.RunID,
 	}
 	resp, err := ptg.client.ExecuteTool(ctx, toolRequest)
 	if err != nil {

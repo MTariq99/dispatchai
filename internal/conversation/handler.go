@@ -15,6 +15,7 @@ import (
 	"github.com/google/uuid"
 	errs "github.com/mtariq99/dispatchai/internal/errors"
 	"github.com/mtariq99/dispatchai/internal/idempotency"
+	"github.com/mtariq99/dispatchai/internal/integration"
 	"github.com/mtariq99/dispatchai/internal/integrationctx"
 	"github.com/mtariq99/dispatchai/internal/run"
 	"github.com/mtariq99/dispatchai/internal/utils"
@@ -29,9 +30,10 @@ type ConversationHandler struct {
 	assistant              RequestAssistant
 	runService             *run.RunService
 	requestIdempotencyServ *idempotency.IdempotencyService
+	AdminService           *integration.AdminService
 }
 
-func NewConversationHandler(cfg *models.Config, conversationSrv *ConversationService, assistant RequestAssistant, runService *run.RunService, requestIdempotencyServ *idempotency.IdempotencyService) (*ConversationHandler, error) {
+func NewConversationHandler(cfg *models.Config, conversationSrv *ConversationService, assistant RequestAssistant, runService *run.RunService, requestIdempotencyServ *idempotency.IdempotencyService, AdminServ *integration.AdminService) (*ConversationHandler, error) {
 	if cfg == nil {
 		return nil, fmt.Errorf("config is empty")
 	}
@@ -57,6 +59,7 @@ func NewConversationHandler(cfg *models.Config, conversationSrv *ConversationSer
 		assistant:              assistant,
 		runService:             runService,
 		requestIdempotencyServ: requestIdempotencyServ,
+		AdminService:           AdminServ,
 	}, nil
 }
 
@@ -336,12 +339,21 @@ func (ch *ConversationHandler) Chat(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, failedResponse)
 		return
 	}
+	perms, err := ch.AdminService.GrantedPermissions(ctx, integrationID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, models.ErrorResponse{Error: "failed to load integration permissions"})
+		return
+	}
+	if perms == nil {
+		perms = []string{}
+	}
 
 	execCtx := models.ExecutionContext{
 		RunID:          runRecord.ID,
 		RequestID:      requestID.String(),
 		ConversationID: req.ConversationID,
 		IntegrationID:  integrationID,
+		Authorization:  models.AuthorizationContext{Roles: []string{}, Permissions: perms},
 	}
 
 	answer, err := ch.assistant.HandleRequest(ctx, req.Message, execCtx)

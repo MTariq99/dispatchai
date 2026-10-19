@@ -28,51 +28,14 @@ func (c *Customers) GetCustomers(ctx context.Context, req *models.ToolRequest) (
 		return nil, fmt.Errorf("unexpected tool: %s", req.ToolName)
 	}
 
-	// 1. Validate identity
-	if req.Identity.UserID == uuid.Nil {
+	if req.IntegrationID == uuid.Nil {
 		return &models.ToolResponse{
 			RequestID: req.RequestID,
 			CallID:    req.CallID,
 			Success:   false,
 			Error: &models.ToolError{
 				Code:      "UNAUTHENTICATED",
-				Message:   "user identity is required",
-				Retryable: false,
-			},
-		}, nil
-	}
-
-	// 2. Validate tenant
-	if req.Tenant.TenantID == uuid.Nil {
-		return &models.ToolResponse{
-			RequestID: req.RequestID,
-			CallID:    req.CallID,
-			Success:   false,
-			Error: &models.ToolError{
-				Code:      "TENANT_REQUIRED",
-				Message:   "tenant context is required",
-				Retryable: false,
-			},
-		}, nil
-	}
-
-	// 3. Host Project authorization
-	authorized := false
-	for _, permission := range req.Authorization.Permissions {
-		if permission == "customer.read" {
-			authorized = true
-			break
-		}
-	}
-
-	if !authorized {
-		return &models.ToolResponse{
-			RequestID: req.RequestID,
-			CallID:    req.CallID,
-			Success:   false,
-			Error: &models.ToolError{
-				Code:      "FORBIDDEN",
-				Message:   "user is not authorized to read customers",
+				Message:   "integration identity is required",
 				Retryable: false,
 			},
 		}, nil

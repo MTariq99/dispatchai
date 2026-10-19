@@ -84,8 +84,7 @@ func newLockTestExecutionContext() *models.ExecutionContext {
 		RequestID:      "lock-test-request",
 		RunID:          uuid.New(),
 		ConversationID: uuid.New(),
-		Identity:       models.Identity{UserID: uuid.New()},
-		Tenant:         models.TenantContext{TenantID: uuid.New()},
+		IntegrationID:  uuid.New(),
 	}
 }
 
